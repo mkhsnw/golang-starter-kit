@@ -1,0 +1,23 @@
+run:
+  # Timeout untuk linter
+  timeout: 5m
+  # Jangan melinting file test (_test.go) untuk saat ini
+  tests: false
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt       # Memastikan format kode standar Go
+    - govet       # Mendeteksi kode mencurigakan
+    - errcheck    # Memastikan error tidak diabaikan
+    - staticcheck # Static analysis komprehensif
+    - ineffassign # Mendeteksi assignment variabel yang tidak pernah dipakai
+    - typecheck   # Cek tipe data
+    - gosimple    # Saran penyederhanaan kode
+    - unused      # Mendeteksi fungsi/variabel yang tidak dipakai
+
+linters-settings:
+  govet:
+    enable-all: true
+  errcheck:
+    check-type-assertions: true
