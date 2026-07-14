@@ -1,8 +1,6 @@
 package config
 
-import (
-	"github.com/go-playground/validator"
-)
+import "github.com/go-playground/validator/v10"
 
 func NewValidator(config *Config) *validator.Validate {
 	return validator.New()

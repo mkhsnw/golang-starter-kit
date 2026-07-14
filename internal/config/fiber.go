@@ -30,21 +30,32 @@ func NewFiber(config *Config) *fiber.App {
 
 	app.Use(logger.New())
 	app.Use(recover.New())
-	app.Use(cors.New())
+	app.Use(NewCORSConfig(config))
 	app.Use(helmet.New())
-	
-	// Performance Middlewares
+
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
-	
-	// Security Middlewares
+
 	app.Use(limiter.New(limiter.Config{
 		Max:        100,
 		Expiration: 1 * time.Minute,
 	}))
 
 	return app
+}
+
+func NewCORSConfig(config *Config) *cors.Config {
+	if config.App.Environment == "production" {
+		return &cors.Config{
+			AllowOrigins: []string{config.App.Url},
+			AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+			AllowHeaders: []string{"Origin", "Content-type", "Accept", "Authorization"},
+		}
+	}
+	return &cors.Config{
+		AllowOrigins: []string{"*"},
+	}
 }
 
 func NewErrorHandler() fiber.ErrorHandler {

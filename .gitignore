@@ -1,0 +1,15 @@
+tmp/
+main.exe
+*.exe
+
+build-errors.log
+
+.env
+.env.local
+
+.vscode/
+.idea/
+.DS_Store
+vendor/
+*.test
+*.out

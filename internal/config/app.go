@@ -1,9 +1,13 @@
 package config
 
 import (
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/controller"
+	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/middleware"
 	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/route"
+	"github.com/mkhsnw/golang-starter-kit/internal/repository"
+	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -17,8 +21,23 @@ type BootstrapConfig struct {
 }
 
 func Bootstrap(config *BootstrapConfig) {
+	// Repositories
+	userRepo := repository.NewUserRepository(config.Database)
+
+	// Usecases
+	userUsecase := usecase.NewUserUsecase(config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
+
+	// Controllers
+	userController := controller.NewUserController(userUsecase, config.Validator)
+
+	// Middlewares
+	authMiddleware := middleware.NewAuthMiddleware(config.Config.JWT.Secret)
+
+	// Setup Routes
 	routes := route.RouteConfig{
-		App: config.App,
+		App:            config.App,
+		UserController: userController,
+		AuthMiddleware: authMiddleware,
 	}
 	routes.SetupRoutes()
 }
