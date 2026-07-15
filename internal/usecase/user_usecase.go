@@ -15,10 +15,10 @@ import (
 type UserUsecase struct {
 	JwtSecret          string
 	JwtExpirationHours int
-	UserRepository     *repository.UserRepository
+	UserRepository     repository.UserRepositoryInterface
 }
 
-func NewUserUsecase(jwtSecret string, jwtExpHours int, userRepo *repository.UserRepository) *UserUsecase {
+func NewUserUsecase(jwtSecret string, jwtExpHours int, userRepo repository.UserRepositoryInterface) *UserUsecase {
 	return &UserUsecase{
 		JwtSecret:          jwtSecret,
 		JwtExpirationHours: jwtExpHours,
@@ -36,7 +36,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, exception.NewResponseError(500, "Failed to hash password")
+		return nil, exception.NewResponseError(500, "Registration failed")
 	}
 
 	user := &entity.User{
@@ -46,7 +46,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	if err := u.UserRepository.Create(ctx, user); err != nil {
-		return nil, exception.NewResponseError(500, "Failed to create user")
+		return nil, exception.NewResponseError(500, "Registration failed")
 	}
 
 	return &model.UserResponse{
@@ -84,5 +84,22 @@ func (u *UserUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 
 	return &model.TokenResponse{
 		Token: tokenString,
+	}, nil
+}
+func (u *UserUsecase) GetCurrentUser(ctx context.Context, userID uint64) (*model.UserResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	user, err := u.UserRepository.FindByID(ctx, userID)
+	if err != nil {
+		return nil, exception.NotFound("User not found")
+	}
+
+	return &model.UserResponse{
+		ID:        user.ID,
+		Name:      user.Name,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt.UnixMilli(),
+		UpdatedAt: user.UpdatedAt.UnixMilli(),
 	}, nil
 }

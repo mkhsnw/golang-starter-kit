@@ -10,7 +10,7 @@ tmp_dir = "tmp"
   delay = 1000
   
   # Direktori yang diabaikan agar tidak memicu reload
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", ".git"]
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", ".git", "docs", "bin"]
   
   # File regex yang diabaikan (misalnya file test)
   exclude_regex = ["_test.go"]

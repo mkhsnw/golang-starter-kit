@@ -23,21 +23,29 @@ type BootstrapConfig struct {
 func Bootstrap(config *BootstrapConfig) {
 	// Repositories
 	userRepo := repository.NewUserRepository(config.Database)
+	productRepo := repository.NewProductRepository(config.Database)
+	// @InjectRepo
 
 	// Usecases
 	userUsecase := usecase.NewUserUsecase(config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
+	productUsecase := usecase.NewProductUsecase(productRepo)
+	// @InjectUsecase
 
 	// Controllers
 	userController := controller.NewUserController(userUsecase, config.Validator)
+	productController := controller.NewProductController(productUsecase, config.Validator)
+	// @InjectController
 
 	// Middlewares
 	authMiddleware := middleware.NewAuthMiddleware(config.Config.JWT.Secret)
 
 	// Setup Routes
 	routes := route.RouteConfig{
-		App:            config.App,
-		UserController: userController,
-		AuthMiddleware: authMiddleware,
+		App:               config.App,
+		UserController:    userController,
+		AuthMiddleware:    authMiddleware,
+		ProductController: productController,
+		// @InjectRouteConfig
 	}
 	routes.SetupRoutes()
 }

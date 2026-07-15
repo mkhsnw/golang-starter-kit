@@ -25,3 +25,13 @@ clean:
 init:
 	go install github.com/air-verse/air@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/vektra/mockery/v2@v2.42.1
+
+# Generate mocks
+mock:
+	mockery --dir internal/repository --all --output internal/repository/mocks
+	mockery --dir internal/usecase --all --output internal/usecase/mocks
+
+# Generate swagger docs
+docs:
+	swag init -g cmd/main.go --parseInternal --parseDependency

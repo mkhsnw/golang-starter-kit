@@ -8,15 +8,24 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/mkhsnw/golang-starter-kit/docs"
 	"github.com/mkhsnw/golang-starter-kit/internal/config"
 )
 
+// @title Golang Starter Kit API
+// @version 1.0
+// @description This is a sample API for Golang Starter Kit.
+// @host localhost:3000
+// @BasePath /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	appConfig := config.NewConfig()
 	log := config.NewLogrus(appConfig)
 	db := config.NewDatabase(appConfig, log)
 	validator := config.NewValidator(appConfig)
-	app := config.NewFiber(appConfig)
+	app := config.NewFiber(appConfig, db)
 
 	config.Bootstrap(&config.BootstrapConfig{
 		Config:    appConfig,

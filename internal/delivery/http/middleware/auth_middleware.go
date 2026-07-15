@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
+	"github.com/mkhsnw/golang-starter-kit/internal/util"
 )
 
 func NewAuthMiddleware(jwtSecret string) fiber.Handler {
@@ -21,7 +22,7 @@ func NewAuthMiddleware(jwtSecret string) fiber.Handler {
 		}
 
 		tokenString := parts[1]
-		
+
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, exception.Unauthorized("Invalid token signing method")
@@ -39,8 +40,8 @@ func NewAuthMiddleware(jwtSecret string) fiber.Handler {
 		}
 
 		// Inject user info into fiber Context
-		ctx.Locals("userId", claims["id"])
-		ctx.Locals("userEmail", claims["email"])
+		ctx.Locals(util.ContextKeyUserID, claims["id"])
+		ctx.Locals(util.ContextKeyUserEmail, claims["email"])
 
 		return ctx.Next()
 	}

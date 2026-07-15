@@ -1,0 +1,22 @@
+package model
+
+type Create{{.Pascal}}Request struct {
+{{- range .Fields}}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"required"`
+{{- end}}
+}
+
+type Update{{.Pascal}}Request struct {
+{{- range .Fields}}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"required"`
+{{- end}}
+}
+
+type {{.Pascal}}Response struct {
+	ID        uint64 `json:"id"`
+{{- range .Fields}}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"`
+{{- end}}
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}

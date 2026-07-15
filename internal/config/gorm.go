@@ -22,13 +22,18 @@ func NewDatabase(config *Config, log *logrus.Logger) *gorm.DB {
 
 	databaseUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", dbUsername, dbPassword, dbHost, dbPort, dbName)
 
+	gormLogLevel := logger.Info
+	if config.App.Environment == "production" {
+		gormLogLevel = logger.Warn
+	}
+
 	db, err := gorm.Open(mysql.Open(databaseUrl), &gorm.Config{
 		Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
-			SlowThreshold:             time.Second * 5,
+			SlowThreshold:             time.Millisecond * 500,
 			Colorful:                  true,
 			IgnoreRecordNotFoundError: true,
 			ParameterizedQueries:      true,
-			LogLevel:                  logger.Info,
+			LogLevel:                  gormLogLevel,
 		}),
 	})
 

@@ -9,17 +9,27 @@ import (
 )
 
 type UserController struct {
-	UserUsecase *usecase.UserUsecase
+	UserUsecase usecase.UserUsecaseInterface
 	Validator   *validator.Validate
 }
 
-func NewUserController(userUsecase *usecase.UserUsecase, validate *validator.Validate) *UserController {
+func NewUserController(userUsecase usecase.UserUsecaseInterface, validate *validator.Validate) *UserController {
 	return &UserController{
 		UserUsecase: userUsecase,
 		Validator:   validate,
 	}
 }
 
+// Register godoc
+// @Summary Register a new user
+// @Description Register a new user with name, email, and password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param body body model.RegisterRequest true "Register Request"
+// @Success 201 {object} model.WebResponse[model.UserResponse]
+// @Failure 400 {object} model.WebResponse[any]
+// @Router /register [post]
 func (c *UserController) Register(ctx fiber.Ctx) error {
 	var req model.RegisterRequest
 	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
@@ -36,6 +46,16 @@ func (c *UserController) Register(ctx fiber.Ctx) error {
 	})
 }
 
+// Login godoc
+// @Summary Login user
+// @Description Authenticate user and get JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param body body model.LoginRequest true "Login Request"
+// @Success 200 {object} model.WebResponse[model.TokenResponse]
+// @Failure 401 {object} model.WebResponse[any]
+// @Router /login [post]
 func (c *UserController) Login(ctx fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
@@ -52,14 +72,29 @@ func (c *UserController) Login(ctx fiber.Ctx) error {
 	})
 }
 
+// Current godoc
+// @Summary Get current user
+// @Description Get current authenticated user details
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} model.WebResponse[model.UserResponse]
+// @Failure 401 {object} model.WebResponse[any]
+// @Router /users/current [get]
 func (c *UserController) Current(ctx fiber.Ctx) error {
-	// We extract ID from fiber Locals which is injected by AuthMiddleware
-	userId := ctx.Locals("userId")
-	
-	return ctx.JSON(model.WebResponse[fiber.Map]{
-		Data: fiber.Map{
-			"id": userId,
-			"message": "This is a protected route. Hello user!",
-		},
+	userIdRaw, ok := ctx.Locals(util.ContextKeyUserID).(float64)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+	userId := uint64(userIdRaw)
+
+	response, err := c.UserUsecase.GetCurrentUser(ctx.Context(), userId)
+	if err != nil {
+		return err
+	}
+
+	return ctx.JSON(model.WebResponse[*model.UserResponse]{
+		Data: response,
 	})
 }

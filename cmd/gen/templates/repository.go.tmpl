@@ -1,0 +1,16 @@
+package repository
+
+import (
+	"github.com/mkhsnw/golang-starter-kit/internal/entity"
+	"gorm.io/gorm"
+)
+
+type {{.Pascal}}Repository struct {
+	*Repository[entity.{{.Pascal}}]
+}
+
+func New{{.Pascal}}Repository(db *gorm.DB) *{{.Pascal}}Repository {
+	return &{{.Pascal}}Repository{
+		Repository: NewRepository[entity.{{.Pascal}}](db),
+	}
+}

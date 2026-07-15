@@ -2,9 +2,11 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -12,12 +14,13 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"gorm.io/gorm"
 )
 
-func NewFiber(config *Config) *fiber.App {
+func NewFiber(config *Config, db *gorm.DB) *fiber.App {
 
 	app := fiber.New(fiber.Config{
 		AppName:      config.App.Name,
@@ -28,7 +31,14 @@ func NewFiber(config *Config) *fiber.App {
 		BodyLimit:    5 * 1024 * 1024,
 	})
 
-	app.Use(logger.New())
+	// Generate X-Request-ID (Correlation ID) untuk setiap request
+	app.Use(requestid.New())
+
+	// Logger diformat untuk menyertakan Request ID
+	app.Use(logger.New(logger.Config{
+		Format: "[${time}] ${ip} | ${locals:requestid} | ${status} - ${method} ${path}\n",
+	}))
+
 	app.Use(recover.New())
 	app.Use(NewCORSConfig(config))
 	app.Use(helmet.New())
@@ -42,20 +52,32 @@ func NewFiber(config *Config) *fiber.App {
 		Expiration: 1 * time.Minute,
 	}))
 
+	// Health check yang benar-benar cek koneksi DB
+	app.Get("/health", func(ctx fiber.Ctx) error {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status": "error",
+				"detail": "database unreachable",
+			})
+		}
+		return ctx.JSON(fiber.Map{"status": "ok"})
+	})
+
 	return app
 }
 
-func NewCORSConfig(config *Config) *cors.Config {
+func NewCORSConfig(config *Config) fiber.Handler {
 	if config.App.Environment == "production" {
-		return &cors.Config{
+		return cors.New(cors.Config{
 			AllowOrigins: []string{config.App.Url},
 			AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
 			AllowHeaders: []string{"Origin", "Content-type", "Accept", "Authorization"},
-		}
+		})
 	}
-	return &cors.Config{
-		AllowOrigins: []string{"*"},
-	}
+	return cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:3000"},
+	})
 }
 
 func NewErrorHandler() fiber.ErrorHandler {
@@ -79,7 +101,11 @@ func NewErrorHandler() fiber.ErrorHandler {
 		// Handle Validator errors
 		if e, ok := err.(validator.ValidationErrors); ok {
 			code = fiber.StatusBadRequest
-			errs = e.Error()
+			var errMessages []string
+			for _, errField := range e {
+				errMessages = append(errMessages, fmt.Sprintf("%s is %s", errField.Field(), errField.Tag()))
+			}
+			errs = strings.Join(errMessages, ", ")
 		}
 
 		// Handle JSON Decode errors

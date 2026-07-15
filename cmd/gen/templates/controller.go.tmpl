@@ -1,0 +1,156 @@
+package controller
+
+import (
+	"strconv"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v3"
+	"github.com/mkhsnw/golang-starter-kit/internal/model"
+	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
+	"github.com/mkhsnw/golang-starter-kit/internal/util"
+)
+
+type {{.Pascal}}Controller struct {
+	{{.Pascal}}Usecase usecase.{{.Pascal}}UsecaseInterface
+	Validator          *validator.Validate
+}
+
+func New{{.Pascal}}Controller(uc usecase.{{.Pascal}}UsecaseInterface, validate *validator.Validate) *{{.Pascal}}Controller {
+	return &{{.Pascal}}Controller{ {{.Pascal}}Usecase: uc, Validator: validate }
+}
+
+// Create godoc
+// @Summary Create {{.Pascal}}
+// @Description Create a new {{.Pascal}}
+// @Tags {{.Plural}}
+// @Accept json
+// @Produce json
+// @Param body body model.Create{{.Pascal}}Request true "Create Request"
+// @Security BearerAuth
+// @Success 201 {object} model.WebResponse[model.{{.Pascal}}Response]
+// @Failure 400 {object} model.WebResponse[any]
+// @Router /{{.Plural}} [post]
+func (c *{{.Pascal}}Controller) Create(ctx fiber.Ctx) error {
+	var req model.Create{{.Pascal}}Request
+	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
+		return err
+	}
+
+	response, err := c.{{.Pascal}}Usecase.Create(ctx.Context(), &req)
+	if err != nil {
+		return err
+	}
+	return ctx.Status(fiber.StatusCreated).JSON(model.WebResponse[*model.{{.Pascal}}Response]{Data: response})
+}
+
+// GetByID godoc
+// @Summary Get {{.Pascal}} by ID
+// @Description Get a {{.Pascal}} by its ID
+// @Tags {{.Plural}}
+// @Produce json
+// @Param id path int true "{{.Pascal}} ID"
+// @Security BearerAuth
+// @Success 200 {object} model.WebResponse[model.{{.Pascal}}Response]
+// @Failure 404 {object} model.WebResponse[any]
+// @Router /{{.Plural}}/{id} [get]
+func (c *{{.Pascal}}Controller) GetByID(ctx fiber.Ctx) error {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.{{.Pascal}}Usecase.GetByID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(model.WebResponse[*model.{{.Pascal}}Response]{Data: response})
+}
+
+// GetAll godoc
+// @Summary Get all {{.Plural}}
+// @Description Get a paginated list of {{.Plural}}
+// @Tags {{.Plural}}
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param size query int false "Page size" default(10)
+// @Security BearerAuth
+// @Success 200 {object} model.WebResponse[[]model.{{.Pascal}}Response]
+// @Router /{{.Plural}} [get]
+func (c *{{.Pascal}}Controller) GetAll(ctx fiber.Ctx) error {
+	page, _ := strconv.Atoi(ctx.Query("page", "1"))
+	size, _ := strconv.Atoi(ctx.Query("size", "10"))
+
+	// Guard: Cegah abuse pagination
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 10
+	}
+
+	responses, total, err := c.{{.Pascal}}Usecase.GetAll(ctx.Context(), page, size)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(model.WebResponse[[]model.{{.Pascal}}Response]{
+		Data:  responses,
+		Paging: &model.PageMetadata{
+			Page:      page,
+			Size:      size,
+			TotalItem: total,
+			TotalPage: (total + int64(size) - 1) / int64(size),
+		},
+	})
+}
+
+// Update godoc
+// @Summary Update {{.Pascal}}
+// @Description Update an existing {{.Pascal}}
+// @Tags {{.Plural}}
+// @Accept json
+// @Produce json
+// @Param id path int true "{{.Pascal}} ID"
+// @Param body body model.Update{{.Pascal}}Request true "Update Request"
+// @Security BearerAuth
+// @Success 200 {object} model.WebResponse[model.{{.Pascal}}Response]
+// @Failure 400 {object} model.WebResponse[any]
+// @Failure 404 {object} model.WebResponse[any]
+// @Router /{{.Plural}}/{id} [put]
+func (c *{{.Pascal}}Controller) Update(ctx fiber.Ctx) error {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	var req model.Update{{.Pascal}}Request
+	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
+		return err
+	}
+
+	response, err := c.{{.Pascal}}Usecase.Update(ctx.Context(), id, &req)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(model.WebResponse[*model.{{.Pascal}}Response]{Data: response})
+}
+
+// Delete godoc
+// @Summary Delete {{.Pascal}}
+// @Description Delete a {{.Pascal}} by its ID
+// @Tags {{.Plural}}
+// @Param id path int true "{{.Pascal}} ID"
+// @Security BearerAuth
+// @Success 204 "No Content"
+// @Failure 404 {object} model.WebResponse[any]
+// @Router /{{.Plural}}/{id} [delete]
+func (c *{{.Pascal}}Controller) Delete(ctx fiber.Ctx) error {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	if err := c.{{.Pascal}}Usecase.Delete(ctx.Context(), id); err != nil {
+		return err
+	}
+	return ctx.Status(fiber.StatusNoContent).Send(nil)
+}

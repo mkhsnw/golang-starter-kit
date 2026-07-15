@@ -1,0 +1,112 @@
+package usecase
+
+import (
+	"context"
+	"time"
+
+	"github.com/mkhsnw/golang-starter-kit/internal/entity"
+	"github.com/mkhsnw/golang-starter-kit/internal/exception"
+	"github.com/mkhsnw/golang-starter-kit/internal/model"
+	"github.com/mkhsnw/golang-starter-kit/internal/repository"
+)
+
+type {{.Pascal}}Usecase struct {
+	{{.Pascal}}Repository repository.{{.Pascal}}RepositoryInterface
+}
+
+func New{{.Pascal}}Usecase(repo repository.{{.Pascal}}RepositoryInterface) *{{.Pascal}}Usecase {
+	return &{{.Pascal}}Usecase{ {{.Pascal}}Repository: repo }
+}
+
+func (u *{{.Pascal}}Usecase) Create(ctx context.Context, req *model.Create{{.Pascal}}Request) (*model.{{.Pascal}}Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	{{.Camel}} := &entity.{{.Pascal}}{
+{{- range .Fields}}
+		{{.PascalName}}: req.{{.PascalName}},
+{{- end}}
+	}
+
+	if err := u.{{.Pascal}}Repository.Create(ctx, {{.Camel}}); err != nil {
+		return nil, exception.NewResponseError(500, "failed to create {{.Snake}}")
+	}
+
+	res := to{{.Pascal}}Response({{.Camel}})
+	return &res, nil
+}
+
+func (u *{{.Pascal}}Usecase) GetByID(ctx context.Context, id uint64) (*model.{{.Pascal}}Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	{{.Camel}}, err := u.{{.Pascal}}Repository.FindByID(ctx, id)
+	if err != nil {
+		return nil, exception.NotFound("{{.Pascal}} not found")
+	}
+	
+	res := to{{.Pascal}}Response({{.Camel}})
+	return &res, nil
+}
+
+func (u *{{.Pascal}}Usecase) GetAll(ctx context.Context, page, size int) ([]model.{{.Pascal}}Response, int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	items, total, err := u.{{.Pascal}}Repository.FindAllPaginated(ctx, page, size)
+	if err != nil {
+		return nil, 0, exception.NewResponseError(500, "failed to fetch {{.Plural}}")
+	}
+
+	responses := make([]model.{{.Pascal}}Response, len(items))
+	for i := range items {
+		responses[i] = to{{.Pascal}}Response(&items[i])
+	}
+	return responses, total, nil
+}
+
+func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id uint64, req *model.Update{{.Pascal}}Request) (*model.{{.Pascal}}Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	{{.Camel}}, err := u.{{.Pascal}}Repository.FindByID(ctx, id)
+	if err != nil {
+		return nil, exception.NotFound("{{.Pascal}} not found")
+	}
+
+{{range .Fields}}
+	{{$.Camel}}.{{.PascalName}} = req.{{.PascalName}}
+{{- end}}
+
+	if err := u.{{.Pascal}}Repository.Update(ctx, {{.Camel}}); err != nil {
+		return nil, exception.NewResponseError(500, "failed to update {{.Snake}}")
+	}
+	
+	res := to{{.Pascal}}Response({{.Camel}})
+	return &res, nil
+}
+
+func (u *{{.Pascal}}Usecase) Delete(ctx context.Context, id uint64) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	{{.Camel}}, err := u.{{.Pascal}}Repository.FindByID(ctx, id)
+	if err != nil {
+		return exception.NotFound("{{.Pascal}} not found")
+	}
+	if err := u.{{.Pascal}}Repository.Delete(ctx, {{.Camel}}); err != nil {
+		return exception.NewResponseError(500, "failed to delete {{.Snake}}")
+	}
+	return nil
+}
+
+func to{{.Pascal}}Response(e *entity.{{.Pascal}}) model.{{.Pascal}}Response {
+	return model.{{.Pascal}}Response{
+		ID:        e.ID,
+{{- range .Fields}}
+		{{.PascalName}}: e.{{.PascalName}},
+{{- end}}
+		CreatedAt: e.CreatedAt.UnixMilli(),
+		UpdatedAt: e.UpdatedAt.UnixMilli(),
+	}
+}
