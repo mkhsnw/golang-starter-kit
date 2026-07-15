@@ -29,7 +29,7 @@ func (u *{{.Pascal}}Usecase) Create(ctx context.Context, req *model.Create{{.Pas
 	}
 
 	if err := u.{{.Pascal}}Repository.Create(ctx, {{.Camel}}); err != nil {
-		return nil, exception.NewResponseError(500, "failed to create {{.Snake}}")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to create {{.Snake}}")
 	}
 
 	res := to{{.Pascal}}Response({{.Camel}})
@@ -55,7 +55,7 @@ func (u *{{.Pascal}}Usecase) GetAll(ctx context.Context, page, size int) ([]mode
 
 	items, total, err := u.{{.Pascal}}Repository.FindAllPaginated(ctx, page, size)
 	if err != nil {
-		return nil, 0, exception.NewResponseError(500, "failed to fetch {{.Plural}}")
+		return nil, 0, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to fetch {{.Plural}}")
 	}
 
 	responses := make([]model.{{.Pascal}}Response, len(items))
@@ -79,7 +79,7 @@ func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id uint64, req *model.U
 {{- end}}
 
 	if err := u.{{.Pascal}}Repository.Update(ctx, {{.Camel}}); err != nil {
-		return nil, exception.NewResponseError(500, "failed to update {{.Snake}}")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to update {{.Snake}}")
 	}
 	
 	res := to{{.Pascal}}Response({{.Camel}})
@@ -95,7 +95,7 @@ func (u *{{.Pascal}}Usecase) Delete(ctx context.Context, id uint64) error {
 		return exception.NotFound("{{.Pascal}} not found")
 	}
 	if err := u.{{.Pascal}}Repository.Delete(ctx, {{.Camel}}); err != nil {
-		return exception.NewResponseError(500, "failed to delete {{.Snake}}")
+		return exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to delete {{.Snake}}")
 	}
 	return nil
 }

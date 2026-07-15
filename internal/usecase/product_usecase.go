@@ -30,7 +30,7 @@ func (u *ProductUsecase) Create(ctx context.Context, req *model.CreateProductReq
 	}
 
 	if err := u.ProductRepository.Create(ctx, product); err != nil {
-		return nil, exception.NewResponseError(500, "failed to create product")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to create product")
 	}
 
 	res := toProductResponse(product)
@@ -56,7 +56,7 @@ func (u *ProductUsecase) GetAll(ctx context.Context, page, size int) ([]model.Pr
 
 	items, total, err := u.ProductRepository.FindAllPaginated(ctx, page, size)
 	if err != nil {
-		return nil, 0, exception.NewResponseError(500, "failed to fetch products")
+		return nil, 0, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to fetch products")
 	}
 
 	responses := make([]model.ProductResponse, len(items))
@@ -81,7 +81,7 @@ func (u *ProductUsecase) Update(ctx context.Context, id uint64, req *model.Updat
 	product.Stock = req.Stock
 
 	if err := u.ProductRepository.Update(ctx, product); err != nil {
-		return nil, exception.NewResponseError(500, "failed to update product")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to update product")
 	}
 
 	res := toProductResponse(product)
@@ -97,7 +97,7 @@ func (u *ProductUsecase) Delete(ctx context.Context, id uint64) error {
 		return exception.NotFound("Product not found")
 	}
 	if err := u.ProductRepository.Delete(ctx, product); err != nil {
-		return exception.NewResponseError(500, "failed to delete product")
+		return exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to delete product")
 	}
 	return nil
 }

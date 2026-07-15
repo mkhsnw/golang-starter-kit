@@ -36,7 +36,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, exception.NewResponseError(500, "Registration failed")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Registration failed")
 	}
 
 	user := &entity.User{
@@ -46,7 +46,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	if err := u.UserRepository.Create(ctx, user); err != nil {
-		return nil, exception.NewResponseError(500, "Registration failed")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Registration failed")
 	}
 
 	return &model.UserResponse{
@@ -79,7 +79,7 @@ func (u *UserUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 
 	tokenString, err := token.SignedString([]byte(u.JwtSecret))
 	if err != nil {
-		return nil, exception.NewResponseError(500, "Failed to generate token")
+		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Failed to generate token")
 	}
 
 	return &model.TokenResponse{

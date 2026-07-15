@@ -97,7 +97,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 		// Handle custom ResponseError
 		if e, ok := err.(*exception.ResponseError); ok {
 			code = e.Code
-			errCode = "APPLICATION_ERROR"
+			errCode = e.AppCode
 			errMessage = e.Message
 		}
 
