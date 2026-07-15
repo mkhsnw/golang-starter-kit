@@ -53,8 +53,8 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
-		CreatedAt: user.CreatedAt.UnixMilli(),
-		UpdatedAt: user.UpdatedAt.UnixMilli(),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }
 
@@ -99,7 +99,7 @@ func (u *UserUsecase) GetCurrentUser(ctx context.Context, userID uint64) (*model
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
-		CreatedAt: user.CreatedAt.UnixMilli(),
-		UpdatedAt: user.UpdatedAt.UnixMilli(),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }

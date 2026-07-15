@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -84,48 +83,62 @@ func NewErrorHandler() fiber.ErrorHandler {
 	return func(ctx fiber.Ctx, err error) error {
 		// Default internal server error
 		code := fiber.StatusInternalServerError
-		var errs string = err.Error()
+		errCode := "INTERNAL_SERVER_ERROR"
+		errMessage := err.Error()
+		var errFields []model.FieldError
 
 		// Handle Fiber native errors
 		if e, ok := err.(*fiber.Error); ok {
 			code = e.Code
-			errs = e.Message
+			errCode = "FRAMEWORK_ERROR"
+			errMessage = e.Message
 		}
 
 		// Handle custom ResponseError
 		if e, ok := err.(*exception.ResponseError); ok {
 			code = e.Code
-			errs = e.Message
+			errCode = "APPLICATION_ERROR"
+			errMessage = e.Message
 		}
 
 		// Handle Validator errors
 		if e, ok := err.(validator.ValidationErrors); ok {
 			code = fiber.StatusBadRequest
-			var errMessages []string
+			errCode = "VALIDATION_ERROR"
+			errMessage = "Invalid input"
 			for _, errField := range e {
-				errMessages = append(errMessages, fmt.Sprintf("%s is %s", errField.Field(), errField.Tag()))
+				errFields = append(errFields, model.FieldError{
+					Field:   errField.Field(),
+					Message: fmt.Sprintf("failed on '%s' validation", errField.Tag()),
+				})
 			}
-			errs = strings.Join(errMessages, ", ")
 		}
 
 		// Handle JSON Decode errors
 		if _, ok := err.(*json.UnmarshalTypeError); ok {
 			code = fiber.StatusBadRequest
-			errs = "invalid json format"
+			errCode = "BAD_REQUEST"
+			errMessage = "invalid json format"
 		}
 		if _, ok := err.(*json.SyntaxError); ok {
 			code = fiber.StatusBadRequest
-			errs = "invalid json syntax"
+			errCode = "BAD_REQUEST"
+			errMessage = "invalid json syntax"
 		}
 
 		// Handle GORM Record Not Found
 		if err == gorm.ErrRecordNotFound {
 			code = fiber.StatusNotFound
-			errs = "record not found"
+			errCode = "NOT_FOUND"
+			errMessage = "record not found"
 		}
 
 		return ctx.Status(code).JSON(model.WebResponse[any]{
-			Errors: errs,
+			Error: &model.ErrorDetail{
+				Code:    errCode,
+				Message: errMessage,
+				Fields:  errFields,
+			},
 		})
 	}
 }

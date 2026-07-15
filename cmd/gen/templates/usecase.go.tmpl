@@ -106,7 +106,7 @@ func to{{.Pascal}}Response(e *entity.{{.Pascal}}) model.{{.Pascal}}Response {
 {{- range .Fields}}
 		{{.PascalName}}: e.{{.PascalName}},
 {{- end}}
-		CreatedAt: e.CreatedAt.UnixMilli(),
-		UpdatedAt: e.UpdatedAt.UnixMilli(),
+		CreatedAt: e.CreatedAt,
+		UpdatedAt: e.UpdatedAt,
 	}
 }

@@ -3,7 +3,18 @@ package model
 type WebResponse[T any] struct {
 	Data   T             `json:"data,omitempty"`
 	Paging *PageMetadata `json:"paging,omitempty"`
-	Errors string        `json:"errors,omitempty"`
+	Error  *ErrorDetail  `json:"error,omitempty"`
+}
+
+type ErrorDetail struct {
+	Code    string       `json:"code"`
+	Message string       `json:"message"`
+	Fields  []FieldError `json:"fields,omitempty"`
+}
+
+type FieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 type PageMetadata struct {

@@ -109,7 +109,7 @@ func toProductResponse(e *entity.Product) model.ProductResponse {
 		Description: e.Description,
 		Price:       e.Price,
 		Stock:       e.Stock,
-		CreatedAt:   e.CreatedAt.UnixMilli(),
-		UpdatedAt:   e.UpdatedAt.UnixMilli(),
+		CreatedAt:   e.CreatedAt,
+		UpdatedAt:   e.UpdatedAt,
 	}
 }

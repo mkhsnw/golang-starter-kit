@@ -19,7 +19,7 @@ type RouteConfig struct {
 }
 
 func (c *RouteConfig) SetupRoutes() {
-	api := c.App.Group("/api")
+	api := c.App.Group("/api/v1")
 
 	// Setup Public Routes
 	c.setupAuthRoutes(api)

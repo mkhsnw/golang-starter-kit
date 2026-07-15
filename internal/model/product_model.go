@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type CreateProductRequest struct {
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description" validate:"required"`
@@ -20,6 +22,6 @@ type ProductResponse struct {
 	Description string `json:"description"`
 	Price       int    `json:"price"`
 	Stock       int32  `json:"stock"`
-	CreatedAt   int64  `json:"created_at"`
-	UpdatedAt   int64  `json:"updated_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
