@@ -14,10 +14,10 @@ type UserUsecaseInterface interface {
 
 type ProductUsecaseInterface interface {
 	Create(ctx context.Context, req *model.CreateProductRequest) (*model.ProductResponse, error)
-	GetByID(ctx context.Context, id uint64) (*model.ProductResponse, error)
+	GetByID(ctx context.Context, id string) (*model.ProductResponse, error)
 	GetAll(ctx context.Context, page, size int) ([]model.ProductResponse, int64, error)
-	Update(ctx context.Context, id uint64, req *model.UpdateProductRequest) (*model.ProductResponse, error)
-	Delete(ctx context.Context, id uint64) error
+	Update(ctx context.Context, id string, req *model.UpdateProductRequest) (*model.ProductResponse, error)
+	Delete(ctx context.Context, id string) error
 }
 
 // @InjectUsecaseInterface

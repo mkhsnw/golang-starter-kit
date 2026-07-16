@@ -40,7 +40,11 @@ func NewAuthMiddleware(jwtSecret string) fiber.Handler {
 		}
 
 		// Inject user info into fiber Context
-		ctx.Locals(util.ContextKeyUserID, claims["id"])
+		idFloat, ok := claims["id"].(float64)
+		if !ok {
+			return exception.Unauthorized("Invalid token claims")
+		}
+		ctx.Locals(util.ContextKeyUserID, uint64(idFloat))
 		ctx.Locals(util.ContextKeyUserEmail, claims["email"])
 
 		return ctx.Next()

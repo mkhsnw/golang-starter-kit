@@ -16,7 +16,7 @@ import (
 // @version 1.0
 // @description This is a sample API for Golang Starter Kit.
 // @host localhost:3000
-// @BasePath /api
+// @BasePath /api/v1
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
@@ -25,7 +25,7 @@ func main() {
 	log := config.NewLogrus(appConfig)
 	db := config.NewDatabase(appConfig, log)
 	validator := config.NewValidator(appConfig)
-	app := config.NewFiber(appConfig, db)
+	app := config.NewFiber(appConfig, db, log)
 
 	config.Bootstrap(&config.BootstrapConfig{
 		Config:    appConfig,

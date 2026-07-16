@@ -9,6 +9,7 @@ import (
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/repository/mocks"
 	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,7 +19,8 @@ import (
 func newProductUsecase(t *testing.T) (*usecase.ProductUsecase, *mocks.ProductRepositoryInterface) {
 	t.Helper()
 	repoMock := new(mocks.ProductRepositoryInterface)
-	uc := usecase.NewProductUsecase(repoMock)
+	logger := logrus.New()
+	uc := usecase.NewProductUsecase(logger, repoMock)
 	return uc, repoMock
 }
 
@@ -60,10 +62,10 @@ func TestProductUsecase_GetByID_Success(t *testing.T) {
 	uc, repoMock := newProductUsecase(t)
 
 	item := &entity.Product{}
-	repoMock.On("FindByID", mock.Anything, uint64(1)).
+	repoMock.On("FindByID", mock.Anything, "uuid-1").
 		Return(item, nil).Once()
 
-	res, err := uc.GetByID(context.Background(), 1)
+	res, err := uc.GetByID(context.Background(), "uuid-1")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
@@ -73,10 +75,10 @@ func TestProductUsecase_GetByID_Success(t *testing.T) {
 func TestProductUsecase_GetByID_NotFound(t *testing.T) {
 	uc, repoMock := newProductUsecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(404)).
+	repoMock.On("FindByID", mock.Anything, "uuid-404").
 		Return(nil, errors.New("record not found")).Once()
 
-	res, err := uc.GetByID(context.Background(), 404)
+	res, err := uc.GetByID(context.Background(), "uuid-404")
 
 	assert.Error(t, err)
 	assert.Nil(t, res)
@@ -105,10 +107,10 @@ func TestProductUsecase_GetAll_Success(t *testing.T) {
 func TestProductUsecase_Update_NotFound(t *testing.T) {
 	uc, repoMock := newProductUsecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(99)).
+	repoMock.On("FindByID", mock.Anything, "uuid-99").
 		Return(nil, errors.New("record not found")).Once()
 
-	res, err := uc.Update(context.Background(), 99, &model.UpdateProductRequest{})
+	res, err := uc.Update(context.Background(), "uuid-99", &model.UpdateProductRequest{})
 
 	assert.Error(t, err)
 	assert.Nil(t, res)
@@ -121,10 +123,10 @@ func TestProductUsecase_Delete_Success(t *testing.T) {
 	uc, repoMock := newProductUsecase(t)
 
 	item := &entity.Product{}
-	repoMock.On("FindByID", mock.Anything, uint64(1)).Return(item, nil).Once()
+	repoMock.On("FindByID", mock.Anything, "uuid-1").Return(item, nil).Once()
 	repoMock.On("Delete", mock.Anything, item).Return(nil).Once()
 
-	err := uc.Delete(context.Background(), 1)
+	err := uc.Delete(context.Background(), "uuid-1")
 
 	assert.NoError(t, err)
 	repoMock.AssertExpectations(t)
@@ -133,10 +135,10 @@ func TestProductUsecase_Delete_Success(t *testing.T) {
 func TestProductUsecase_Delete_NotFound(t *testing.T) {
 	uc, repoMock := newProductUsecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(99)).
+	repoMock.On("FindByID", mock.Anything, "uuid-99").
 		Return(nil, errors.New("record not found")).Once()
 
-	err := uc.Delete(context.Background(), 99)
+	err := uc.Delete(context.Background(), "uuid-99")
 
 	assert.Error(t, err)
 	repoMock.AssertExpectations(t)

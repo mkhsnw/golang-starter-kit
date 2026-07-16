@@ -4,18 +4,32 @@ import (
 	"context"
 	"time"
 
+{{- if .UseUUID}}
+	"github.com/google/uuid"
+{{- end}}
+
+	"github.com/sirupsen/logrus"
 	"github.com/mkhsnw/golang-starter-kit/internal/entity"
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/repository"
+	"github.com/mkhsnw/golang-starter-kit/internal/util"
 )
 
 type {{.Pascal}}Usecase struct {
+	Log                *logrus.Logger
 	{{.Pascal}}Repository repository.{{.Pascal}}RepositoryInterface
 }
 
-func New{{.Pascal}}Usecase(repo repository.{{.Pascal}}RepositoryInterface) *{{.Pascal}}Usecase {
-	return &{{.Pascal}}Usecase{ {{.Pascal}}Repository: repo }
+func New{{.Pascal}}Usecase(log *logrus.Logger, repo repository.{{.Pascal}}RepositoryInterface) *{{.Pascal}}Usecase {
+	return &{{.Pascal}}Usecase{Log: log, {{.Pascal}}Repository: repo}
+}
+
+func (u *{{.Pascal}}Usecase) log(ctx context.Context) *logrus.Entry {
+	if reqID, ok := ctx.Value(util.ContextKeyRequestID).(string); ok {
+		return u.Log.WithField("requestid", reqID)
+	}
+	return u.Log.WithField("requestid", "unknown")
 }
 
 func (u *{{.Pascal}}Usecase) Create(ctx context.Context, req *model.Create{{.Pascal}}Request) (*model.{{.Pascal}}Response, error) {
@@ -23,12 +37,16 @@ func (u *{{.Pascal}}Usecase) Create(ctx context.Context, req *model.Create{{.Pas
 	defer cancel()
 
 	{{.Camel}} := &entity.{{.Pascal}}{
+{{- if .UseUUID}}
+		ID: uuid.New().String(),
+{{- end}}
 {{- range .Fields}}
 		{{.PascalName}}: req.{{.PascalName}},
 {{- end}}
 	}
 
 	if err := u.{{.Pascal}}Repository.Create(ctx, {{.Camel}}); err != nil {
+		u.log(ctx).Errorf("failed to create {{.Snake}}: %v", err)
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to create {{.Snake}}")
 	}
 
@@ -36,7 +54,7 @@ func (u *{{.Pascal}}Usecase) Create(ctx context.Context, req *model.Create{{.Pas
 	return &res, nil
 }
 
-func (u *{{.Pascal}}Usecase) GetByID(ctx context.Context, id uint64) (*model.{{.Pascal}}Response, error) {
+func (u *{{.Pascal}}Usecase) GetByID(ctx context.Context, id {{if .UseUUID}}string{{else}}uint64{{end}}) (*model.{{.Pascal}}Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -49,12 +67,14 @@ func (u *{{.Pascal}}Usecase) GetByID(ctx context.Context, id uint64) (*model.{{.
 	return &res, nil
 }
 
+{{- if .UseUUID}}
 func (u *{{.Pascal}}Usecase) GetAll(ctx context.Context, page, size int) ([]model.{{.Pascal}}Response, int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	items, total, err := u.{{.Pascal}}Repository.FindAllPaginated(ctx, page, size)
 	if err != nil {
+		u.log(ctx).Errorf("failed to fetch {{.Plural}}: %v", err)
 		return nil, 0, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to fetch {{.Plural}}")
 	}
 
@@ -64,8 +84,32 @@ func (u *{{.Pascal}}Usecase) GetAll(ctx context.Context, page, size int) ([]mode
 	}
 	return responses, total, nil
 }
+{{- else}}
+func (u *{{.Pascal}}Usecase) GetAll(ctx context.Context, cursor uint64, size int) ([]model.{{.Pascal}}Response, *uint64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id uint64, req *model.Update{{.Pascal}}Request) (*model.{{.Pascal}}Response, error) {
+	items, err := u.{{.Pascal}}Repository.FindAllCursor(ctx, cursor, size)
+	if err != nil {
+		u.log(ctx).Errorf("failed to fetch {{.Plural}}: %v", err)
+		return nil, nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to fetch {{.Plural}}")
+	}
+
+	responses := make([]model.{{.Pascal}}Response, len(items))
+	for i := range items {
+		responses[i] = to{{.Pascal}}Response(&items[i])
+	}
+
+	var nextCursor *uint64
+	if len(items) == size {
+		nextCursor = &items[len(items)-1].ID
+	}
+
+	return responses, nextCursor, nil
+}
+{{- end}}
+
+func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id {{if .UseUUID}}string{{else}}uint64{{end}}, req *model.Update{{.Pascal}}Request) (*model.{{.Pascal}}Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -75,10 +119,13 @@ func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id uint64, req *model.U
 	}
 
 {{range .Fields}}
-	{{$.Camel}}.{{.PascalName}} = req.{{.PascalName}}
+	if req.{{.PascalName}} != nil {
+		{{$.Camel}}.{{.PascalName}} = *req.{{.PascalName}}
+	}
 {{- end}}
 
 	if err := u.{{.Pascal}}Repository.Update(ctx, {{.Camel}}); err != nil {
+		u.log(ctx).Errorf("failed to update {{.Snake}}: %v", err)
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to update {{.Snake}}")
 	}
 	
@@ -86,7 +133,7 @@ func (u *{{.Pascal}}Usecase) Update(ctx context.Context, id uint64, req *model.U
 	return &res, nil
 }
 
-func (u *{{.Pascal}}Usecase) Delete(ctx context.Context, id uint64) error {
+func (u *{{.Pascal}}Usecase) Delete(ctx context.Context, id {{if .UseUUID}}string{{else}}uint64{{end}}) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -95,6 +142,7 @@ func (u *{{.Pascal}}Usecase) Delete(ctx context.Context, id uint64) error {
 		return exception.NotFound("{{.Pascal}} not found")
 	}
 	if err := u.{{.Pascal}}Repository.Delete(ctx, {{.Camel}}); err != nil {
+		u.log(ctx).Errorf("failed to delete {{.Snake}}: %v", err)
 		return exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "failed to delete {{.Snake}}")
 	}
 	return nil

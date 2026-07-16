@@ -28,6 +28,8 @@ func NewDatabase(config *Config, log *logrus.Logger) *gorm.DB {
 	}
 
 	db, err := gorm.Open(mysql.Open(databaseUrl), &gorm.Config{
+		SkipDefaultTransaction: true, // Boost write performance by skipping implicit transactions
+		PrepareStmt:            true, // Cache prepared statements for faster query execution
 		Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
 			SlowThreshold:             time.Millisecond * 500,
 			Colorful:                  true,

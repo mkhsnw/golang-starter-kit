@@ -3,7 +3,11 @@ package entity
 import "time"
 
 type {{.Pascal}} struct {
+{{- if .UseUUID}}
+	ID        string    `gorm:"primaryKey;type:varchar(36);column:id"`
+{{- else}}
 	ID        uint64    `gorm:"primaryKey;column:id"`
+{{- end}}
 {{- range .Fields}}
 	{{.PascalName}} {{.Type}} `gorm:"column:{{.SnakeName}}"`
 {{- end}}

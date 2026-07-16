@@ -18,8 +18,9 @@ type FieldError struct {
 }
 
 type PageMetadata struct {
-	Page      int   `json:"page"`
-	Size      int   `json:"size"`
-	TotalItem int64 `json:"total_item"`
-	TotalPage int64 `json:"total_page"`
+	Page       int     `json:"page,omitempty"`
+	Size       int     `json:"size"`
+	TotalItem  int64   `json:"total_item,omitempty"`
+	TotalPage  int64   `json:"total_page,omitempty"`
+	NextCursor *uint64 `json:"next_cursor,omitempty"`
 }

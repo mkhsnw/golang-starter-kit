@@ -3,8 +3,10 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
@@ -14,12 +16,14 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
+	"context"
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
+	"github.com/mkhsnw/golang-starter-kit/internal/util"
 	"gorm.io/gorm"
 )
 
-func NewFiber(config *Config, db *gorm.DB) *fiber.App {
+func NewFiber(config *Config, db *gorm.DB, log *logrus.Logger) *fiber.App {
 
 	app := fiber.New(fiber.Config{
 		AppName:      config.App.Name,
@@ -33,10 +37,33 @@ func NewFiber(config *Config, db *gorm.DB) *fiber.App {
 	// Generate X-Request-ID (Correlation ID) untuk setiap request
 	app.Use(requestid.New())
 
-	// Logger diformat untuk menyertakan Request ID
+	// Propagate request ID into standard Go context.Context
+	app.Use(func(c fiber.Ctx) error {
+		reqID := c.Locals("requestid")
+		if reqID != nil {
+			if str, ok := reqID.(string); ok {
+				c.SetContext(context.WithValue(c.Context(), util.ContextKeyRequestID, str))
+			}
+		}
+		return c.Next()
+	})
+
+	// Logger diformat untuk menyertakan Request ID (Format JSON)
 	app.Use(logger.New(logger.Config{
-		Format: "[${time}] ${ip} | ${locals:requestid} | ${status} - ${method} ${path}\n",
+		Format: `{"time":"${time}","ip":"${ip}","requestid":"${locals:requestid}","status":${status},"method":"${method}","path":"${path}","latency":"${latency}"}` + "\n",
 	}))
+
+	// Middleware log raw body jika terjadi internal server error (5xx)
+	app.Use(func(ctx fiber.Ctx) error {
+		err := ctx.Next()
+		if ctx.Response().StatusCode() >= fiber.StatusInternalServerError {
+			body := ctx.Body()
+			if len(body) > 0 {
+				log.Errorf("[5xx Error Details] Method: %s | Path: %s | Body: %s", ctx.Method(), ctx.Path(), string(body))
+			}
+		}
+		return err
+	})
 
 	app.Use(recover.New())
 	app.Use(NewCORSConfig(config))
@@ -46,9 +73,16 @@ func NewFiber(config *Config, db *gorm.DB) *fiber.App {
 		Level: compress.LevelBestSpeed,
 	}))
 
+	// WARNING: In-memory rate limiting is not stateless. If you scale this application horizontally
+	// (e.g. multiple pods in Kubernetes or multi-instance deployment), each instance will maintain
+	// its own rate limit counter. For production/multi-instance setups, configure a Redis store.
 	app.Use(limiter.New(limiter.Config{
 		Max:        100,
 		Expiration: 1 * time.Minute,
+		Next: func(ctx fiber.Ctx) bool {
+			// Skip limiter for swagger docs
+			return strings.HasPrefix(ctx.Path(), "/api/v1/docs")
+		},
 	}))
 
 	// Health check yang benar-benar cek koneksi DB

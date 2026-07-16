@@ -4,18 +4,22 @@ import "time"
 
 type Create{{.Pascal}}Request struct {
 {{- range .Fields}}
-	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"required"`
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"{{if not .Nullable}} validate:"required"{{end}}`
 {{- end}}
 }
 
 type Update{{.Pascal}}Request struct {
 {{- range .Fields}}
-	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"required"`
+	{{.PascalName}} *{{.Type}} `json:"{{.SnakeName}}"`
 {{- end}}
 }
 
 type {{.Pascal}}Response struct {
+{{- if .UseUUID}}
+	ID        string `json:"id"`
+{{- else}}
 	ID        uint64 `json:"id"`
+{{- end}}
 {{- range .Fields}}
 	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"`
 {{- end}}

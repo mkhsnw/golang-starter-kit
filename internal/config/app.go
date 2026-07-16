@@ -27,8 +27,8 @@ func Bootstrap(config *BootstrapConfig) {
 	// @InjectRepo
 
 	// Usecases
-	userUsecase := usecase.NewUserUsecase(config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
-	productUsecase := usecase.NewProductUsecase(productRepo)
+	userUsecase := usecase.NewUserUsecase(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
+	productUsecase := usecase.NewProductUsecase(config.Logger, productRepo)
 	// @InjectUsecase
 
 	// Controllers

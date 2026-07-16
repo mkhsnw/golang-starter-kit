@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
 	"github.com/mkhsnw/golang-starter-kit/internal/util"
@@ -48,15 +49,15 @@ func (c *ProductController) Create(ctx fiber.Ctx) error {
 // @Description Get a Product by its ID
 // @Tags products
 // @Produce json
-// @Param id path int true "Product ID"
+// @Param id path string true "Product ID"
 // @Security BearerAuth
 // @Success 200 {object} model.WebResponse[model.ProductResponse]
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /products/{id} [get]
 func (c *ProductController) GetByID(ctx fiber.Ctx) error {
-	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
-	if err != nil {
-		return err
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
 
 	response, err := c.ProductUsecase.GetByID(ctx.Context(), id)
@@ -109,7 +110,7 @@ func (c *ProductController) GetAll(ctx fiber.Ctx) error {
 // @Tags products
 // @Accept json
 // @Produce json
-// @Param id path int true "Product ID"
+// @Param id path string true "Product ID"
 // @Param body body model.UpdateProductRequest true "Update Request"
 // @Security BearerAuth
 // @Success 200 {object} model.WebResponse[model.ProductResponse]
@@ -117,9 +118,9 @@ func (c *ProductController) GetAll(ctx fiber.Ctx) error {
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /products/{id} [put]
 func (c *ProductController) Update(ctx fiber.Ctx) error {
-	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
-	if err != nil {
-		return err
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
 
 	var req model.UpdateProductRequest
@@ -138,15 +139,15 @@ func (c *ProductController) Update(ctx fiber.Ctx) error {
 // @Summary Delete Product
 // @Description Delete a Product by its ID
 // @Tags products
-// @Param id path int true "Product ID"
+// @Param id path string true "Product ID"
 // @Security BearerAuth
 // @Success 204 "No Content"
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /products/{id} [delete]
 func (c *ProductController) Delete(ctx fiber.Ctx) error {
-	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
-	if err != nil {
-		return err
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
 
 	if err := c.ProductUsecase.Delete(ctx.Context(), id); err != nil {

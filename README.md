@@ -61,13 +61,16 @@ API sekarang akan merespon pada port `3000`!
 
 Salah satu keunggulan boilerplate ini adalah *Code Generator*. Anda tidak perlu lagi membuat Controller, Usecase, Repository, Model, atau Unit Test satu per satu.
 
-Gunakan CLI generator bawaan (via Task runner). *Perhatikan penggunaan tanda `--` sebelum menyebutkan nama modul*:
+Gunakan CLI generator bawaan (via Task runner). Argumen disuplai menggunakan format `key=value` (tanpa pemisah `--`):
 ```powershell
 # Contoh: Membuat fitur Transaction standar
-task gen -- Transaction
+task gen name=Transaction
 
 # Contoh: Membuat fitur Category dengan field spesifik
-task gen -- Category --fields name:string,description:string?,is_active:bool
+task gen name=Category fields="name:string,description:string?,is_active:bool"
+
+# Contoh: Membuat fitur Invoice dengan UUID dan Auto-Migrate langsung
+task gen name=Invoice fields="amount:float64" uuid=true migrate=true
 ```
 Langkah ini secara **otomatis** membuat:
 - `internal/entity/transaction.go`
@@ -82,8 +85,9 @@ Langkah ini secara **otomatis** membuat:
 **Menghapus Modul (Rollback):**
 Jika Anda salah mengetik nama atau sekadar ingin menghapus modul yang baru digenerate secara bersih (termasuk mencabut injeksinya), gunakan perintah `rm`:
 ```powershell
-task rm -- Transaction
+task rm name=Transaction
 ```
+
 
 **Langkah Manual Lanjutan:**
 Setelah fitur digenerate, buka `internal/config/gorm.go` lalu tambahkan struct entity yang baru terbentuk (`entity.Transaction{}`) ke fungsi `AutoMigrate()` agar tabel SQL terbentuk otomatis.
@@ -122,7 +126,9 @@ Lalu kunjungi saat server menyala:
 
 ## 🔨 Perintah Lainnya
 
-Boilerplate menyediakan script `Taskfile.yml` singkat untuk kebutuhan esensial:
-- `task lint` : Mengecek *code-style* menggunakan `golangci-lint`
-- `task fmt`  : Memformat ulang kode agar rapi (`go fmt`)
-- `task build`: Meng-compile *binary release* aplikasi ke direktori `bin/app`.
+Boilerplate menyediakan script `Taskfile.yml` singkat untuk kebutuhan esensial. Anda dapat mengetik `task help` untuk melihat ringkasan perintah lengkap, atau menggunakan menu standar:
+- `task help`  : Menampilkan dokumentasi interaktif seluruh perintah runner
+- `task lint`  : Mengecek *code-style* menggunakan `golangci-lint`
+- `task fmt`   : Memformat ulang kode agar rapi (`go fmt`)
+- `task build` : Meng-compile *binary release* aplikasi ke direktori `bin/app`.
+

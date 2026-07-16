@@ -45,7 +45,7 @@ func (_m *ProductUsecaseInterface) Create(ctx context.Context, req *model.Create
 }
 
 // Delete provides a mock function with given fields: ctx, id
-func (_m *ProductUsecaseInterface) Delete(ctx context.Context, id uint64) error {
+func (_m *ProductUsecaseInterface) Delete(ctx context.Context, id string) error {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
@@ -53,7 +53,7 @@ func (_m *ProductUsecaseInterface) Delete(ctx context.Context, id uint64) error 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
 		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Error(0)
@@ -100,7 +100,7 @@ func (_m *ProductUsecaseInterface) GetAll(ctx context.Context, page int, size in
 }
 
 // GetByID provides a mock function with given fields: ctx, id
-func (_m *ProductUsecaseInterface) GetByID(ctx context.Context, id uint64) (*model.ProductResponse, error) {
+func (_m *ProductUsecaseInterface) GetByID(ctx context.Context, id string) (*model.ProductResponse, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
@@ -109,10 +109,10 @@ func (_m *ProductUsecaseInterface) GetByID(ctx context.Context, id uint64) (*mod
 
 	var r0 *model.ProductResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) (*model.ProductResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.ProductResponse, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) *model.ProductResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.ProductResponse); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
@@ -120,7 +120,7 @@ func (_m *ProductUsecaseInterface) GetByID(ctx context.Context, id uint64) (*mod
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
@@ -130,7 +130,7 @@ func (_m *ProductUsecaseInterface) GetByID(ctx context.Context, id uint64) (*mod
 }
 
 // Update provides a mock function with given fields: ctx, id, req
-func (_m *ProductUsecaseInterface) Update(ctx context.Context, id uint64, req *model.UpdateProductRequest) (*model.ProductResponse, error) {
+func (_m *ProductUsecaseInterface) Update(ctx context.Context, id string, req *model.UpdateProductRequest) (*model.ProductResponse, error) {
 	ret := _m.Called(ctx, id, req)
 
 	if len(ret) == 0 {
@@ -139,10 +139,10 @@ func (_m *ProductUsecaseInterface) Update(ctx context.Context, id uint64, req *m
 
 	var r0 *model.ProductResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, *model.UpdateProductRequest) (*model.ProductResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *model.UpdateProductRequest) (*model.ProductResponse, error)); ok {
 		return rf(ctx, id, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, *model.UpdateProductRequest) *model.ProductResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *model.UpdateProductRequest) *model.ProductResponse); ok {
 		r0 = rf(ctx, id, req)
 	} else {
 		if ret.Get(0) != nil {
@@ -150,7 +150,7 @@ func (_m *ProductUsecaseInterface) Update(ctx context.Context, id uint64, req *m
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, *model.UpdateProductRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, *model.UpdateProductRequest) error); ok {
 		r1 = rf(ctx, id, req)
 	} else {
 		r1 = ret.Error(1)

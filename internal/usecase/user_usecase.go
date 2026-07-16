@@ -2,9 +2,11 @@ package usecase
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 	"github.com/mkhsnw/golang-starter-kit/internal/entity"
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
@@ -13,13 +15,15 @@ import (
 )
 
 type UserUsecase struct {
+	Log                *logrus.Logger
 	JwtSecret          string
 	JwtExpirationHours int
 	UserRepository     repository.UserRepositoryInterface
 }
 
-func NewUserUsecase(jwtSecret string, jwtExpHours int, userRepo repository.UserRepositoryInterface) *UserUsecase {
+func NewUserUsecase(log *logrus.Logger, jwtSecret string, jwtExpHours int, userRepo repository.UserRepositoryInterface) *UserUsecase {
 	return &UserUsecase{
+		Log:                log,
 		JwtSecret:          jwtSecret,
 		JwtExpirationHours: jwtExpHours,
 		UserRepository:     userRepo,
@@ -27,6 +31,8 @@ func NewUserUsecase(jwtSecret string, jwtExpHours int, userRepo repository.UserR
 }
 
 func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) (*model.UserResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	// Check if email already exists
 	existingUser, err := u.UserRepository.FindByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
@@ -36,6 +42,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
+		u.Log.Errorf("failed to hash password: %v", err)
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Registration failed")
 	}
 
@@ -46,6 +53,7 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	if err := u.UserRepository.Create(ctx, user); err != nil {
+		u.Log.Errorf("failed to create user: %v", err)
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Registration failed")
 	}
 
@@ -59,6 +67,8 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 }
 
 func (u *UserUsecase) Login(ctx context.Context, req *model.LoginRequest) (*model.TokenResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	// Find user by email
 	user, err := u.UserRepository.FindByEmail(ctx, req.Email)
 	if err != nil {
@@ -79,6 +89,7 @@ func (u *UserUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 
 	tokenString, err := token.SignedString([]byte(u.JwtSecret))
 	if err != nil {
+		u.Log.Errorf("failed to sign jwt token: %v", err)
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Failed to generate token")
 	}
 

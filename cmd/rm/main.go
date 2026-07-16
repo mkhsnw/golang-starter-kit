@@ -3,19 +3,51 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
+func printRmHelp() {
+	fmt.Print(`
+╔══════════════════════════════════════════════════════════════╗
+║              golang-starter-kit Remover CLI                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+USAGE:
+  go run cmd/rm/main.go [flags]
+  task rm [flags]
+
+REQUIRED FLAGS:
+  --name <PascalCase>   Module name to remove in PascalCase (e.g. Product, OrderItem)
+
+OPTIONAL FLAGS:
+  --dry-run             Preview all files that would be deleted/modified
+                        without writing any changes to disk.
+
+  --help, -h            Show this help message.
+
+EXAMPLES:
+  task rm name=Product
+  task rm name=OrderItem dry=true
+`)
+}
+
 func main() {
 	var name string
+	var dryRun bool
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--name" && i+1 < len(args) {
+		if arg == "--help" || arg == "-h" {
+			printRmHelp()
+			os.Exit(0)
+		} else if arg == "--dry-run" {
+			dryRun = true
+		} else if arg == "--name" && i+1 < len(args) {
 			name = args[i+1]
 			i++
 		} else if strings.HasPrefix(arg, "--name=") {
@@ -26,7 +58,14 @@ func main() {
 	}
 
 	if name == "" {
-		fmt.Println("Error: name wajib diisi. Contoh: task rm -- Product")
+		fmt.Println("Error: --name wajib diisi. Contoh: task rm name=Product")
+		fmt.Println("Jalankan dengan --help untuk melihat petunjuk penggunaan.")
+		os.Exit(1)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Gagal mendapatkan working directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -35,20 +74,32 @@ func main() {
 	camel := strings.ToLower((name)[:1]) + (name)[1:]
 	plural := toPlural(snake)
 
-	fmt.Printf("🗑️ Menghapus modul %s...\n", pascal)
+	if dryRun {
+		fmt.Printf("🔍 [DRY-RUN] Mensimulasikan penghapusan modul %s...\n", pascal)
+	} else {
+		fmt.Printf("🗑️ Menghapus modul %s...\n", pascal)
+	}
 
 	// 1. Delete Files
 	filesToDelete := []string{
-		fmt.Sprintf("internal/entity/%s_entity.go", snake),
-		fmt.Sprintf("internal/model/%s_model.go", snake),
-		fmt.Sprintf("internal/repository/%s_repository.go", snake),
-		fmt.Sprintf("internal/usecase/%s_usecase.go", snake),
-		fmt.Sprintf("internal/usecase/%s_usecase_test.go", snake),
-		fmt.Sprintf("internal/delivery/http/controller/%s_controller.go", snake),
-		fmt.Sprintf("internal/delivery/http/controller/%s_controller_test.go", snake),
+		filepath.Join(cwd, "internal", "entity", fmt.Sprintf("%s_entity.go", snake)),
+		filepath.Join(cwd, "internal", "model", fmt.Sprintf("%s_model.go", snake)),
+		filepath.Join(cwd, "internal", "repository", fmt.Sprintf("%s_repository.go", snake)),
+		filepath.Join(cwd, "internal", "usecase", fmt.Sprintf("%s_usecase.go", snake)),
+		filepath.Join(cwd, "internal", "usecase", fmt.Sprintf("%s_usecase_test.go", snake)),
+		filepath.Join(cwd, "internal", "delivery", "http", "controller", fmt.Sprintf("%s_controller.go", snake)),
+		filepath.Join(cwd, "internal", "delivery", "http", "controller", fmt.Sprintf("%s_controller_test.go", snake)),
+		filepath.Join(cwd, "internal", "repository", "mocks", fmt.Sprintf("%sRepositoryInterface.go", pascal)),
+		filepath.Join(cwd, "internal", "usecase", "mocks", fmt.Sprintf("%sUsecaseInterface.go", pascal)),
 	}
 
 	for _, f := range filesToDelete {
+		if dryRun {
+			if _, err := os.Stat(f); err == nil {
+				fmt.Printf("[DRY-RUN] Would delete: %s\n", f)
+			}
+			continue
+		}
 		if err := os.Remove(f); err == nil {
 			fmt.Printf("✓ Terhapus: %s\n", f)
 		} else if !os.IsNotExist(err) {
@@ -57,21 +108,27 @@ func main() {
 	}
 
 	// Remove Migrations
-	removeMigrations(plural)
+	removeMigrations(cwd, plural, dryRun)
 
 	// 2. Remove from Interfaces
-	removeFromRepoInterfaces(pascal)
-	removeFromUsecaseInterfaces(pascal)
+	removeFromRepoInterfaces(cwd, pascal, dryRun)
+	removeFromUsecaseInterfaces(cwd, pascal, dryRun)
 
 	// 3. Remove from App & Route
-	removeFromAppGo(pascal, camel)
-	removeFromRouteGo(pascal, plural)
+	removeFromAppGo(cwd, pascal, camel, dryRun)
+	removeFromRouteGo(cwd, pascal, plural, dryRun)
 
-	fmt.Println("✅ Modul berhasil dihapus dan dibersihkan!")
+	// 4. Run gofmt to clean up injected files if not dry-run
+	if !dryRun {
+		runGofmt(cwd)
+		fmt.Println("✅ Modul berhasil dihapus, dibersihkan, dan diformat dengan gofmt!")
+	} else {
+		fmt.Println("✅ [DRY-RUN] Simulasi penghapusan modul selesai!")
+	}
 }
 
-func removeMigrations(pluralSnake string) {
-	dir := "db/migration"
+func removeMigrations(cwd, pluralSnake string, dryRun bool) {
+	dir := filepath.Join(cwd, "db", "migration")
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -83,6 +140,10 @@ func removeMigrations(pluralSnake string) {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), suffixUp) || strings.HasSuffix(file.Name(), suffixDown) {
 			path := filepath.Join(dir, file.Name())
+			if dryRun {
+				fmt.Printf("[DRY-RUN] Would delete migration: %s\n", path)
+				continue
+			}
 			if err := os.Remove(path); err == nil {
 				fmt.Printf("✓ Terhapus: %s\n", path)
 			}
@@ -90,8 +151,8 @@ func removeMigrations(pluralSnake string) {
 	}
 }
 
-func removeFromRepoInterfaces(pascal string) {
-	path := "internal/repository/interfaces.go"
+func removeFromRepoInterfaces(cwd, pascal string, dryRun bool) {
+	path := filepath.Join(cwd, "internal", "repository", "interfaces.go")
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -103,13 +164,17 @@ func removeFromRepoInterfaces(pascal string) {
 	newContent := re.ReplaceAllString(content, "")
 
 	if content != newContent {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would un-inject repository interface for %s from interfaces.go\n", pascal)
+			return
+		}
 		os.WriteFile(path, []byte(newContent), 0644)
 		fmt.Println("✓ Un-injected from repository/interfaces.go")
 	}
 }
 
-func removeFromUsecaseInterfaces(pascal string) {
-	path := "internal/usecase/interfaces.go"
+func removeFromUsecaseInterfaces(cwd, pascal string, dryRun bool) {
+	path := filepath.Join(cwd, "internal", "usecase", "interfaces.go")
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -121,13 +186,17 @@ func removeFromUsecaseInterfaces(pascal string) {
 	newContent := re.ReplaceAllString(content, "")
 
 	if content != newContent {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would un-inject usecase interface for %s from interfaces.go\n", pascal)
+			return
+		}
 		os.WriteFile(path, []byte(newContent), 0644)
 		fmt.Println("✓ Un-injected from usecase/interfaces.go")
 	}
 }
 
-func removeFromAppGo(pascal, camel string) {
-	path := "internal/config/app.go"
+func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
+	path := filepath.Join(cwd, "internal", "config", "app.go")
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -141,7 +210,7 @@ func removeFromAppGo(pascal, camel string) {
 		if strings.Contains(line, fmt.Sprintf("%sRepo := repository.New%sRepository", camel, pascal)) {
 			continue
 		}
-		if strings.Contains(line, fmt.Sprintf("%sUsecase := usecase.New%sUsecase(%sRepo)", camel, pascal, camel)) {
+		if strings.Contains(line, fmt.Sprintf("%sUsecase := usecase.New%sUsecase", camel, pascal)) {
 			continue
 		}
 		if strings.Contains(line, fmt.Sprintf("%sController := controller.New%sController", camel, pascal)) {
@@ -155,20 +224,23 @@ func removeFromAppGo(pascal, camel string) {
 
 	newContent := strings.Join(newLines, "\n")
 	if content != newContent {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would un-inject %s dependencies from app.go\n", pascal)
+			return
+		}
 		os.WriteFile(path, []byte(newContent), 0644)
 		fmt.Println("✓ Un-injected from app.go")
 	}
 }
 
-func removeFromRouteGo(pascal, plural string) {
-	path := "internal/delivery/http/route/route.go"
+func removeFromRouteGo(cwd, pascal, plural string, dryRun bool) {
+	path := filepath.Join(cwd, "internal", "delivery", "http", "route", "route.go")
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
 	content := string(contentBytes)
 
-	// Remove struct field and setup call
 	lines := strings.Split(content, "\n")
 	var newLines []string
 
@@ -176,7 +248,7 @@ func removeFromRouteGo(pascal, plural string) {
 		if strings.Contains(line, fmt.Sprintf("%sController *controller.%sController", pascal, pascal)) {
 			continue
 		}
-		if strings.Contains(line, fmt.Sprintf("c.setup%sRoutes(apiAuth)", pascal)) {
+		if strings.Contains(line, fmt.Sprintf("c.setup%sRoutes(", pascal)) {
 			continue
 		}
 		newLines = append(newLines, line)
@@ -190,8 +262,28 @@ func removeFromRouteGo(pascal, plural string) {
 	newContent = re.ReplaceAllString(newContent, "")
 
 	if content != newContent {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would un-inject routes for %s from route.go\n", pascal)
+			return
+		}
 		os.WriteFile(path, []byte(newContent), 0644)
 		fmt.Println("✓ Un-injected from route.go")
+	}
+}
+
+func runGofmt(cwd string) {
+	files := []string{
+		filepath.Join(cwd, "internal", "config", "app.go"),
+		filepath.Join(cwd, "internal", "delivery", "http", "route", "route.go"),
+		filepath.Join(cwd, "internal", "repository", "interfaces.go"),
+		filepath.Join(cwd, "internal", "usecase", "interfaces.go"),
+	}
+
+	for _, f := range files {
+		if _, err := os.Stat(f); err == nil {
+			cmd := exec.Command("gofmt", "-w", f)
+			_ = cmd.Run()
+		}
 	}
 }
 

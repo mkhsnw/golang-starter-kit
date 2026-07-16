@@ -41,7 +41,7 @@ func (r *Repository[T]) FindByID(ctx context.Context, id any, preloads ...string
 }
 
 func (r *Repository[T]) Update(ctx context.Context, entity *T) error {
-	return r.DB.WithContext(ctx).Save(entity).Error
+	return r.DB.WithContext(ctx).Updates(entity).Error
 }
 
 func (r *Repository[T]) Delete(ctx context.Context, entity *T) error {
@@ -52,24 +52,29 @@ func (r *Repository[T]) FindAllPaginated(ctx context.Context, page, size int, pr
 	var entities []T
 	var total int64
 
-	db := r.DB.WithContext(ctx).Model(new(T))
-
-	if err := db.Count(&total).Error; err != nil {
+	dbCount := r.DB.WithContext(ctx).Model(new(T))
+	if err := dbCount.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
+	dbFetch := r.DB.WithContext(ctx).Model(new(T))
 	for _, p := range preloads {
-		db = db.Preload(p)
+		dbFetch = dbFetch.Preload(p)
 	}
 
 	offset := (page - 1) * size
-	if err := db.Offset(offset).Limit(size).Find(&entities).Error; err != nil {
+	if err := dbFetch.Offset(offset).Limit(size).Find(&entities).Error; err != nil {
 		return nil, 0, err
 	}
 
 	return entities, total, nil
 }
 
+// FindAllCursor performs cursor-based pagination using numeric IDs.
+// NOTE: This method is NOT suitable for entities with UUID primary keys
+// because UUID strings cannot be compared with ">". For UUID-based entities,
+// use FindAllPaginated instead (offset pagination), or implement a custom
+// cursor using created_at timestamp ordering.
 func (r *Repository[T]) FindAllCursor(ctx context.Context, cursor uint64, size int, preloads ...string) ([]T, error) {
 	var entities []T
 	db := r.DB.WithContext(ctx).Model(new(T))

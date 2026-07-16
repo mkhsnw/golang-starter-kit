@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -43,11 +42,9 @@ func setupProductController(t *testing.T) (*fiber.App, *ucmocks.ProductUsecaseIn
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 // validCreateProductBody returns a minimal valid JSON body for Create.
-// Fill in real values below if your model has required fields.
 func validCreateProductBody() []byte {
 	b, _ := json.Marshal(map[string]interface{}{
-		// TODO: fill in required fields for CreateProductRequest
-		// "name": "test",
+		"name": "test",
 	})
 	return b
 }
@@ -56,19 +53,16 @@ func TestProductController_Create_Success(t *testing.T) {
 	app, ucMock := setupProductController(t)
 
 	ucMock.On("Create", mock.Anything, mock.Anything).
-		Return(&model.ProductResponse{}, nil).Maybe()
+		Return(&model.ProductResponse{}, nil).Once()
 
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader(validCreateProductBody()))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, _ := app.Test(req)
 
-	// If validator rejects the empty body → StatusBadRequest, otherwise StatusCreated.
-	// Populate validCreateProductBody() above with real field values to get StatusCreated.
-	assert.True(t, resp.StatusCode == fiber.StatusCreated || resp.StatusCode == fiber.StatusBadRequest)
+	assert.Equal(t, fiber.StatusCreated, resp.StatusCode, "Response status is not 201 Created. Please ensure validCreateProductBody() returns a valid JSON payload that satisfies the validation rules.")
 	ucMock.AssertExpectations(t)
 }
-
 func TestProductController_Create_ValidationError(t *testing.T) {
 	app, ucMock := setupProductController(t)
 
@@ -87,7 +81,6 @@ func TestProductController_Create_ValidationError(t *testing.T) {
 
 func TestProductController_GetAll_Success(t *testing.T) {
 	app, ucMock := setupProductController(t)
-
 	ucMock.On("GetAll", mock.Anything, 1, 10).
 		Return([]model.ProductResponse{}, int64(0), nil).Once()
 
@@ -104,10 +97,10 @@ func TestProductController_GetAll_Success(t *testing.T) {
 func TestProductController_GetByID_Success(t *testing.T) {
 	app, ucMock := setupProductController(t)
 
-	ucMock.On("GetByID", mock.Anything, uint64(1)).
+	ucMock.On("GetByID", mock.Anything, "uuid-1").
 		Return(&model.ProductResponse{}, nil).Once()
 
-	req := httptest.NewRequest("GET", "/products/1", nil)
+	req := httptest.NewRequest("GET", "/products/uuid-1", nil)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -118,10 +111,10 @@ func TestProductController_GetByID_Success(t *testing.T) {
 func TestProductController_GetByID_NotFound(t *testing.T) {
 	app, ucMock := setupProductController(t)
 
-	ucMock.On("GetByID", mock.Anything, uint64(404)).
+	ucMock.On("GetByID", mock.Anything, "uuid-404").
 		Return(nil, errors.New("not found")).Once()
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/products/%d", 404), nil)
+	req := httptest.NewRequest("GET", "/products/uuid-404", nil)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)
@@ -134,9 +127,9 @@ func TestProductController_GetByID_NotFound(t *testing.T) {
 func TestProductController_Delete_Success(t *testing.T) {
 	app, ucMock := setupProductController(t)
 
-	ucMock.On("Delete", mock.Anything, uint64(1)).Return(nil).Once()
+	ucMock.On("Delete", mock.Anything, "uuid-1").Return(nil).Once()
 
-	req := httptest.NewRequest("DELETE", "/products/1", nil)
+	req := httptest.NewRequest("DELETE", "/products/uuid-1", nil)
 	resp, err := app.Test(req)
 
 	assert.NoError(t, err)

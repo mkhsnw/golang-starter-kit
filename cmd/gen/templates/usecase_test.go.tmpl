@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/mkhsnw/golang-starter-kit/internal/entity"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/repository/mocks"
@@ -18,7 +19,8 @@ import (
 func new{{.Pascal}}Usecase(t *testing.T) (*usecase.{{.Pascal}}Usecase, *mocks.{{.Pascal}}RepositoryInterface) {
 	t.Helper()
 	repoMock := new(mocks.{{.Pascal}}RepositoryInterface)
-	uc := usecase.New{{.Pascal}}Usecase(repoMock)
+	logger := logrus.New()
+	uc := usecase.New{{.Pascal}}Usecase(logger, repoMock)
 	return uc, repoMock
 }
 
@@ -60,10 +62,10 @@ func Test{{.Pascal}}Usecase_GetByID_Success(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
 	item := &entity.{{.Pascal}}{}
-	repoMock.On("FindByID", mock.Anything, uint64(1)).
+	repoMock.On("FindByID", mock.Anything, {{if .UseUUID}}"uuid-1"{{else}}uint64(1){{end}}).
 		Return(item, nil).Once()
 
-	res, err := uc.GetByID(context.Background(), 1)
+	res, err := uc.GetByID(context.Background(), {{if .UseUUID}}"uuid-1"{{else}}1{{end}})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
@@ -73,10 +75,10 @@ func Test{{.Pascal}}Usecase_GetByID_Success(t *testing.T) {
 func Test{{.Pascal}}Usecase_GetByID_NotFound(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(404)).
+	repoMock.On("FindByID", mock.Anything, {{if .UseUUID}}"uuid-404"{{else}}uint64(404){{end}}).
 		Return(nil, errors.New("record not found")).Once()
 
-	res, err := uc.GetByID(context.Background(), 404)
+	res, err := uc.GetByID(context.Background(), {{if .UseUUID}}"uuid-404"{{else}}404{{end}})
 
 	assert.Error(t, err)
 	assert.Nil(t, res)
@@ -89,6 +91,7 @@ func Test{{.Pascal}}Usecase_GetAll_Success(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
 	items := []entity.{{.Pascal}}{}
+{{- if .UseUUID}}
 	repoMock.On("FindAllPaginated", mock.Anything, 1, 10).
 		Return(items, int64(0), nil).Once()
 
@@ -97,6 +100,16 @@ func Test{{.Pascal}}Usecase_GetAll_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, res)
 	assert.Equal(t, int64(0), total)
+{{- else}}
+	repoMock.On("FindAllCursor", mock.Anything, uint64(0), 10).
+		Return(items, nil).Once()
+
+	res, nextCursor, err := uc.GetAll(context.Background(), uint64(0), 10)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Nil(t, nextCursor)
+{{- end}}
 	repoMock.AssertExpectations(t)
 }
 
@@ -105,10 +118,10 @@ func Test{{.Pascal}}Usecase_GetAll_Success(t *testing.T) {
 func Test{{.Pascal}}Usecase_Update_NotFound(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(99)).
+	repoMock.On("FindByID", mock.Anything, {{if .UseUUID}}"uuid-99"{{else}}uint64(99){{end}}).
 		Return(nil, errors.New("record not found")).Once()
 
-	res, err := uc.Update(context.Background(), 99, &model.Update{{.Pascal}}Request{})
+	res, err := uc.Update(context.Background(), {{if .UseUUID}}"uuid-99"{{else}}99{{end}}, &model.Update{{.Pascal}}Request{})
 
 	assert.Error(t, err)
 	assert.Nil(t, res)
@@ -121,10 +134,10 @@ func Test{{.Pascal}}Usecase_Delete_Success(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
 	item := &entity.{{.Pascal}}{}
-	repoMock.On("FindByID", mock.Anything, uint64(1)).Return(item, nil).Once()
+	repoMock.On("FindByID", mock.Anything, {{if .UseUUID}}"uuid-1"{{else}}uint64(1){{end}}).Return(item, nil).Once()
 	repoMock.On("Delete", mock.Anything, item).Return(nil).Once()
 
-	err := uc.Delete(context.Background(), 1)
+	err := uc.Delete(context.Background(), {{if .UseUUID}}"uuid-1"{{else}}1{{end}})
 
 	assert.NoError(t, err)
 	repoMock.AssertExpectations(t)
@@ -133,10 +146,10 @@ func Test{{.Pascal}}Usecase_Delete_Success(t *testing.T) {
 func Test{{.Pascal}}Usecase_Delete_NotFound(t *testing.T) {
 	uc, repoMock := new{{.Pascal}}Usecase(t)
 
-	repoMock.On("FindByID", mock.Anything, uint64(99)).
+	repoMock.On("FindByID", mock.Anything, {{if .UseUUID}}"uuid-99"{{else}}uint64(99){{end}}).
 		Return(nil, errors.New("record not found")).Once()
 
-	err := uc.Delete(context.Background(), 99)
+	err := uc.Delete(context.Background(), {{if .UseUUID}}"uuid-99"{{else}}99{{end}})
 
 	assert.Error(t, err)
 	repoMock.AssertExpectations(t)

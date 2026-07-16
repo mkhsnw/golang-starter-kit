@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
 	"github.com/mkhsnw/golang-starter-kit/internal/util"
@@ -48,16 +49,23 @@ func (c *{{.Pascal}}Controller) Create(ctx fiber.Ctx) error {
 // @Description Get a {{.Pascal}} by its ID
 // @Tags {{.Plural}}
 // @Produce json
-// @Param id path int true "{{.Pascal}} ID"
+// @Param id path {{if .UseUUID}}string{{else}}int{{end}} true "{{.Pascal}} ID"
 // @Security BearerAuth
 // @Success 200 {object} model.WebResponse[model.{{.Pascal}}Response]
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /{{.Plural}}/{id} [get]
 func (c *{{.Pascal}}Controller) GetByID(ctx fiber.Ctx) error {
+{{- if .UseUUID}}
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
+	}
+{{- else}}
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
 	if err != nil {
-		return err
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
+{{- end}}
 
 	response, err := c.{{.Pascal}}Usecase.GetByID(ctx.Context(), id)
 	if err != nil {
@@ -71,12 +79,17 @@ func (c *{{.Pascal}}Controller) GetByID(ctx fiber.Ctx) error {
 // @Description Get a paginated list of {{.Plural}}
 // @Tags {{.Plural}}
 // @Produce json
+{{- if .UseUUID}}
 // @Param page query int false "Page number" default(1)
+{{- else}}
+// @Param cursor query int false "Cursor ID" default(0)
+{{- end}}
 // @Param size query int false "Page size" default(10)
 // @Security BearerAuth
 // @Success 200 {object} model.WebResponse[[]model.{{.Pascal}}Response]
 // @Router /{{.Plural}} [get]
 func (c *{{.Pascal}}Controller) GetAll(ctx fiber.Ctx) error {
+{{- if .UseUUID}}
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
 	size, _ := strconv.Atoi(ctx.Query("size", "10"))
 
@@ -101,6 +114,27 @@ func (c *{{.Pascal}}Controller) GetAll(ctx fiber.Ctx) error {
 			TotalPage: (total + int64(size) - 1) / int64(size),
 		},
 	})
+{{- else}}
+	cursor, _ := strconv.ParseUint(ctx.Query("cursor", "0"), 10, 64)
+	size, _ := strconv.Atoi(ctx.Query("size", "10"))
+
+	// Guard: Cegah abuse pagination
+	if size < 1 || size > 100 {
+		size = 10
+	}
+
+	responses, nextCursor, err := c.{{.Pascal}}Usecase.GetAll(ctx.Context(), cursor, size)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(model.WebResponse[[]model.{{.Pascal}}Response]{
+		Data:  responses,
+		Paging: &model.PageMetadata{
+			Size:       size,
+			NextCursor: nextCursor,
+		},
+	})
+{{- end}}
 }
 
 // Update godoc
@@ -109,7 +143,7 @@ func (c *{{.Pascal}}Controller) GetAll(ctx fiber.Ctx) error {
 // @Tags {{.Plural}}
 // @Accept json
 // @Produce json
-// @Param id path int true "{{.Pascal}} ID"
+// @Param id path {{if .UseUUID}}string{{else}}int{{end}} true "{{.Pascal}} ID"
 // @Param body body model.Update{{.Pascal}}Request true "Update Request"
 // @Security BearerAuth
 // @Success 200 {object} model.WebResponse[model.{{.Pascal}}Response]
@@ -117,10 +151,17 @@ func (c *{{.Pascal}}Controller) GetAll(ctx fiber.Ctx) error {
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /{{.Plural}}/{id} [put]
 func (c *{{.Pascal}}Controller) Update(ctx fiber.Ctx) error {
+{{- if .UseUUID}}
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
+	}
+{{- else}}
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
 	if err != nil {
-		return err
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
+{{- end}}
 
 	var req model.Update{{.Pascal}}Request
 	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
@@ -138,16 +179,23 @@ func (c *{{.Pascal}}Controller) Update(ctx fiber.Ctx) error {
 // @Summary Delete {{.Pascal}}
 // @Description Delete a {{.Pascal}} by its ID
 // @Tags {{.Plural}}
-// @Param id path int true "{{.Pascal}} ID"
+// @Param id path {{if .UseUUID}}string{{else}}int{{end}} true "{{.Pascal}} ID"
 // @Security BearerAuth
 // @Success 204 "No Content"
 // @Failure 404 {object} model.WebResponse[any]
 // @Router /{{.Plural}}/{id} [delete]
 func (c *{{.Pascal}}Controller) Delete(ctx fiber.Ctx) error {
+{{- if .UseUUID}}
+	id := ctx.Params("id")
+	if id == "" {
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
+	}
+{{- else}}
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 64)
 	if err != nil {
-		return err
+		return exception.NewResponseError(400, "BAD_REQUEST", "invalid id format")
 	}
+{{- end}}
 
 	if err := c.{{.Pascal}}Usecase.Delete(ctx.Context(), id); err != nil {
 		return err

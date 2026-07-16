@@ -34,6 +34,7 @@ tasks:
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - go install github.com/vektra/mockery/v2@v2.42.1
       - go install github.com/swaggo/swag/cmd/swag@latest
+      - go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
   mock:
     desc: Generate mocks for Unit Testing
@@ -47,13 +48,78 @@ tasks:
       - swag init -g cmd/main.go --parseInternal --parseDependency
 
   gen:
-    desc: Generate a new CRUD module and update mocks
+    desc: Generate a new CRUD module (e.g. task gen name=Product fields="price:float64")
+    vars:
+      name: '{{.name | default ""}}'
+      fields: '{{.fields | default ""}}'
+      uuid: '{{.uuid | default "false"}}'
+      force: '{{.force | default "false"}}'
+      dry: '{{.dry | default "false"}}'
+      migrate: '{{.migrate | default "false"}}'
     cmds:
-      - go run cmd/gen/main.go {{.CLI_ARGS}}
+      - go run cmd/gen/main.go --name "{{.name}}" --fields "{{.fields}}" {{if eq .uuid "true"}}--uuid{{end}} {{if eq .force "true"}}--force{{end}} {{if eq .dry "true"}}--dry-run{{end}} {{if eq .migrate "true"}}--migrate{{end}}
       - task mock
 
   rm:
-    desc: Remove a generated CRUD module and update mocks
+    desc: Remove a generated CRUD module (e.g. task rm name=Product)
+    vars:
+      name: '{{.name | default ""}}'
+      dry: '{{.dry | default "false"}}'
     cmds:
-      - go run cmd/rm/main.go {{.CLI_ARGS}}
+      - go run cmd/rm/main.go --name "{{.name}}" {{if eq .dry "true"}}--dry-run{{end}}
       - task mock
+
+  migrate-create:
+    desc: Buat file migration baru (kosong), contoh - task migrate-create name=add_phone_to_users
+    vars:
+      name: '{{.name | default ""}}'
+    cmds:
+      - migrate create -ext sql -dir db/migration -seq "{{.name}}"
+
+  migrate-up:
+    desc: Jalankan semua migration yang belum diterapkan
+    cmds:
+      - go run cmd/migrate/main.go up
+
+  migrate-down:
+    desc: Rollback 1 migration terakhir
+    cmds:
+      - go run cmd/migrate/main.go down
+
+  migrate-version:
+    desc: Tampilkan versi migration saat ini
+    cmds:
+      - go run cmd/migrate/main.go version
+
+  help:
+    desc: Tampilkan dokumentasi lengkap untuk semua perintah task runner
+    cmds:
+      - |
+        echo "=========================================================================="
+        echo "                     GOLANG STARTER KIT TASK RUNNER HELP                  "
+        echo "=========================================================================="
+        echo ""
+        echo "DEVELOPMENT COMMANDS:"
+        echo "  task dev                       Jalankan server dengan hot reload (Air)"
+        echo "  task build                     Compile binary release ke bin/app"
+        echo "  task test                      Jalankan unit testing & coverage report"
+        echo "  task lint                      Jalankan linter checker (golangci-lint)"
+        echo "  task fmt                       Format kode Go agar rapi"
+        echo "  task mock                      Generate mock files untuk testing"
+        echo "  task docs                      Generate swagger API documentation"
+        echo ""
+        echo "CODE GENERATION COMMANDS (Tanpa pemisah '--'):"
+        echo "  task gen name=Product fields=\"price:float64\""
+        echo "                                 Generate module CRUD Product baru"
+        echo "                                 Tambahan opsi: uuid=true force=true dry=true migrate=true"
+        echo ""
+        echo "  task rm name=Product           Hapus module Product secara permanen"
+        echo "                                 Tambahan opsi: dry=true"
+        echo ""
+        echo "MIGRATION COMMANDS:"
+        echo "  task migrate-create name=xxx   Buat file SQL migration baru"
+        echo "  task migrate-up                Terapkan semua skema migration baru"
+        echo "  task migrate-down              Rollback 1 file migration terakhir"
+        echo "  task migrate-version           Tampilkan versi database saat ini"
+        echo "=========================================================================="
+
