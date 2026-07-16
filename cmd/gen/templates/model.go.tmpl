@@ -15,11 +15,7 @@ type Update{{.Pascal}}Request struct {
 }
 
 type {{.Pascal}}Response struct {
-{{- if .UseUUID}}
 	ID        string `json:"id"`
-{{- else}}
-	ID        uint64 `json:"id"`
-{{- end}}
 {{- range .Fields}}
 	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"`
 {{- end}}

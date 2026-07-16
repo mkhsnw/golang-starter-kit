@@ -52,12 +52,12 @@ tasks:
     vars:
       name: '{{.name | default ""}}'
       fields: '{{.fields | default ""}}'
-      uuid: '{{.uuid | default "false"}}'
+      tx: '{{.tx | default "false"}}'
       force: '{{.force | default "false"}}'
       dry: '{{.dry | default "false"}}'
       migrate: '{{.migrate | default "false"}}'
     cmds:
-      - go run cmd/gen/main.go --name "{{.name}}" --fields "{{.fields}}" {{if eq .uuid "true"}}--uuid{{end}} {{if eq .force "true"}}--force{{end}} {{if eq .dry "true"}}--dry-run{{end}} {{if eq .migrate "true"}}--migrate{{end}}
+      - go run cmd/gen/main.go --name "{{.name}}" --fields "{{.fields}}" {{if eq .tx "true"}}--tx{{end}} {{if eq .force "true"}}--force{{end}} {{if eq .dry "true"}}--dry-run{{end}} {{if eq .migrate "true"}}--migrate{{end}}
       - task mock
 
   rm:
@@ -111,7 +111,7 @@ tasks:
         echo "CODE GENERATION COMMANDS (Tanpa pemisah '--'):"
         echo "  task gen name=Product fields=\"price:float64\""
         echo "                                 Generate module CRUD Product baru"
-        echo "                                 Tambahan opsi: uuid=true force=true dry=true migrate=true"
+        echo "                                 Tambahan opsi: tx=true force=true dry=true migrate=true"
         echo ""
         echo "  task rm name=Product           Hapus module Product secara permanen"
         echo "                                 Tambahan opsi: dry=true"

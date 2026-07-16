@@ -1,14 +1,15 @@
 CREATE TABLE {{.Plural}} (
-{{- if .UseUUID}}
     id VARCHAR(36) PRIMARY KEY,
-{{- else}}
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-{{- end}}
 {{- range .Fields}}
     {{.SnakeName}} {{.SQLType}} {{if .Nullable}}NULL{{else}}NOT NULL{{end}},
 {{- end}}
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+{{- range .Fields}}
+{{- if .IsForeignKey}}
+    ,CONSTRAINT fk_{{$.Plural}}_{{.SnakeName}} FOREIGN KEY ({{.SnakeName}}) REFERENCES {{.ReferencedTable}}(id) ON DELETE CASCADE
+{{- end}}
+{{- end}}
 );
 
 {{- range .Fields}}

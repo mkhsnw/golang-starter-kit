@@ -83,11 +83,10 @@ func (c *UserController) Login(ctx fiber.Ctx) error {
 // @Failure 401 {object} model.WebResponse[any]
 // @Router /users/current [get]
 func (c *UserController) Current(ctx fiber.Ctx) error {
-	userIdRaw, ok := ctx.Locals(util.ContextKeyUserID).(float64)
+	userId, ok := util.GetUserID(ctx)
 	if !ok {
 		return fiber.ErrUnauthorized
 	}
-	userId := uint64(userIdRaw)
 
 	response, err := c.UserUsecase.GetCurrentUser(ctx.Context(), userId)
 	if err != nil {

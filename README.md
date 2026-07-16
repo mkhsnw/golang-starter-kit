@@ -59,33 +59,40 @@ API sekarang akan merespon pada port `3000`!
 
 ## 🏗️ 3. Membuat Fitur (Generate Module)
 
-Salah satu keunggulan boilerplate ini adalah *Code Generator*. Anda tidak perlu lagi membuat Controller, Usecase, Repository, Model, atau Unit Test satu per satu.
+Salah satu keunggulan boilerplate ini adalah *Code Generator*. Anda tidak perlu lagi membuat Controller, Usecase, Repository, Model, atau Unit Test satu per satu. Semua primary key secara standar dikunci menggunakan **UUID v7 (string)** demi performa B-Tree index yang maksimal dan keamanan dari *enumeration attack*.
 
 Gunakan CLI generator bawaan (via Task runner). Argumen disuplai menggunakan format `key=value` (tanpa pemisah `--`):
 ```powershell
-# Contoh: Membuat fitur Transaction standar
-task gen name=Transaction
+# Contoh: Membuat fitur Product (Master Data biasa, non-transaksional)
+task gen name=Product fields="name:string,price:float64,is_active:bool"
 
-# Contoh: Membuat fitur Category dengan field spesifik
-task gen name=Category fields="name:string,description:string?,is_active:bool"
-
-# Contoh: Membuat fitur Invoice dengan UUID dan Auto-Migrate langsung
-task gen name=Invoice fields="amount:float64" uuid=true migrate=true
+# Contoh: Membuat fitur Order (Transactional Data) dengan Foreign Key
+# - Menambahkan tx=true akan membungkus method Create, Update, dan Delete usecase ke dalam transaksi database yang aman.
+# - Penamaan field berakhiran '_id' (seperti 'user_id') akan otomatis dideteksi sebagai Foreign Key yang merujuk ke tabel referensi jamak ('users') dengan aksi ON DELETE CASCADE di level SQL database.
+task gen name=Order fields="user_id:string,total:float64,note:text?" tx=true migrate=true
 ```
+
+### Konvensi Foreign Key Otomatis:
+Jika Anda menambahkan field berakhiran `_id` (misalnya `category_id`), generator secara otomatis:
+1. Menjadikan tipe SQL kolom tersebut `VARCHAR(36)` agar cocok dengan tipe UUID v7 tabel referensi.
+2. Membuat index database untuk kolom tersebut (`idx_<table_name>_<field_name>`).
+3. Menambahkan constraint foreign key di SQL:
+   `CONSTRAINT fk_categories_category_id FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE`
+
 Langkah ini secara **otomatis** membuat:
-- `internal/entity/transaction.go`
-- `internal/model/transaction_model.go`
-- `internal/repository/transaction_repository.go`
-- `internal/usecase/transaction_usecase.go`
-- `internal/delivery/http/controller/transaction_controller.go`
-- `internal/usecase/transaction_usecase_test.go` (Unit Test Lengkap 100% Mocks)
-- `internal/delivery/http/controller/transaction_controller_test.go` (Integration Test Lengkap)
+- `internal/entity/product.go`
+- `internal/model/product_model.go`
+- `internal/repository/product_repository.go`
+- `internal/usecase/product_usecase.go`
+- `internal/delivery/http/controller/product_controller.go`
+- `internal/usecase/product_usecase_test.go` (Unit Test Lengkap dengan Mocks)
+- `internal/delivery/http/controller/product_controller_test.go` (Integration Test Lengkap)
 - Registrasi route & dependency injection baru di `app.go`, `route.go`, dan `interfaces.go`.
 
 **Menghapus Modul (Rollback):**
 Jika Anda salah mengetik nama atau sekadar ingin menghapus modul yang baru digenerate secara bersih (termasuk mencabut injeksinya), gunakan perintah `rm`:
 ```powershell
-task rm name=Transaction
+task rm name=Product
 ```
 
 

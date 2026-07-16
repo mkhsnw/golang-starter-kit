@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/mkhsnw/golang-starter-kit/internal/entity"
@@ -46,7 +47,9 @@ func (u *UserUsecase) Register(ctx context.Context, req *model.RegisterRequest) 
 		return nil, exception.NewResponseError(500, "INTERNAL_SERVER_ERROR", "Registration failed")
 	}
 
+	id, _ := uuid.NewV7()
 	user := &entity.User{
+		ID:       id.String(),
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: string(hashedPassword),
@@ -97,7 +100,7 @@ func (u *UserUsecase) Login(ctx context.Context, req *model.LoginRequest) (*mode
 		Token: tokenString,
 	}, nil
 }
-func (u *UserUsecase) GetCurrentUser(ctx context.Context, userID uint64) (*model.UserResponse, error) {
+func (u *UserUsecase) GetCurrentUser(ctx context.Context, userID string) (*model.UserResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

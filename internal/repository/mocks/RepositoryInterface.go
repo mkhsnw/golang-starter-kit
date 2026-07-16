@@ -50,7 +50,7 @@ func (_m *RepositoryInterface[T]) Delete(ctx context.Context, entity *T) error {
 }
 
 // FindAllCursor provides a mock function with given fields: ctx, cursor, size, preloads
-func (_m *RepositoryInterface[T]) FindAllCursor(ctx context.Context, cursor uint64, size int, preloads ...string) ([]T, error) {
+func (_m *RepositoryInterface[T]) FindAllCursor(ctx context.Context, cursor string, size int, preloads ...string) ([]T, error) {
 	_va := make([]interface{}, len(preloads))
 	for _i := range preloads {
 		_va[_i] = preloads[_i]
@@ -66,10 +66,10 @@ func (_m *RepositoryInterface[T]) FindAllCursor(ctx context.Context, cursor uint
 
 	var r0 []T
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int, ...string) ([]T, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, ...string) ([]T, error)); ok {
 		return rf(ctx, cursor, size, preloads...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int, ...string) []T); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, ...string) []T); ok {
 		r0 = rf(ctx, cursor, size, preloads...)
 	} else {
 		if ret.Get(0) != nil {
@@ -77,7 +77,7 @@ func (_m *RepositoryInterface[T]) FindAllCursor(ctx context.Context, cursor uint
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, int, ...string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, ...string) error); ok {
 		r1 = rf(ctx, cursor, size, preloads...)
 	} else {
 		r1 = ret.Error(1)

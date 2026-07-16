@@ -14,6 +14,7 @@ type RouteConfig struct {
 	App               *fiber.App
 	UserController    *controller.UserController
 	ProductController *controller.ProductController
+	OrderController   *controller.OrderController
 	// @InjectRouteStruct
 	AuthMiddleware fiber.Handler
 }
@@ -29,6 +30,7 @@ func (c *RouteConfig) SetupRoutes() {
 	apiAuth := api.Group("/", c.AuthMiddleware)
 	c.setupUserRoutes(apiAuth)
 	c.setupProductRoutes(apiAuth)
+	c.setupOrderRoutes(apiAuth)
 	// @InjectRouteSetup
 }
 
@@ -56,4 +58,14 @@ func (c *RouteConfig) setupProductRoutes(api fiber.Router) {
 	products.Get("/:id", c.ProductController.GetByID)
 	products.Put("/:id", c.ProductController.Update)
 	products.Delete("/:id", c.ProductController.Delete)
+}
+
+func (c *RouteConfig) setupOrderRoutes(api fiber.Router) {
+	orders := api.Group("/orders")
+
+	orders.Post("/", c.OrderController.Create)
+	orders.Get("/", c.OrderController.GetAll)
+	orders.Get("/:id", c.OrderController.GetByID)
+	orders.Put("/:id", c.OrderController.Update)
+	orders.Delete("/:id", c.OrderController.Delete)
 }

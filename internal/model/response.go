@@ -22,5 +22,5 @@ type PageMetadata struct {
 	Size       int     `json:"size"`
 	TotalItem  int64   `json:"total_item,omitempty"`
 	TotalPage  int64   `json:"total_page,omitempty"`
-	NextCursor *uint64 `json:"next_cursor,omitempty"`
+	NextCursor *string `json:"next_cursor,omitempty"`
 }

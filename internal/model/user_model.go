@@ -14,7 +14,7 @@ type LoginRequest struct {
 }
 
 type UserResponse struct {
-	ID        uint64 `json:"id"`
+	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Email     string `json:"email"`
 	CreatedAt time.Time  `json:"created_at"`

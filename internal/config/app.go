@@ -21,19 +21,26 @@ type BootstrapConfig struct {
 }
 
 func Bootstrap(config *BootstrapConfig) {
+	// Transaction Manager
+	txManager := repository.NewGormTransactionManager(config.Database)
+	_ = txManager
+
 	// Repositories
 	userRepo := repository.NewUserRepository(config.Database)
 	productRepo := repository.NewProductRepository(config.Database)
+	orderRepo := repository.NewOrderRepository(config.Database)
 	// @InjectRepo
 
 	// Usecases
 	userUsecase := usecase.NewUserUsecase(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
 	productUsecase := usecase.NewProductUsecase(config.Logger, productRepo)
+	orderUsecase := usecase.NewOrderUsecase(config.Logger, txManager, orderRepo)
 	// @InjectUsecase
 
 	// Controllers
 	userController := controller.NewUserController(userUsecase, config.Validator)
 	productController := controller.NewProductController(productUsecase, config.Validator)
+	orderController := controller.NewOrderController(orderUsecase, config.Validator)
 	// @InjectController
 
 	// Middlewares
@@ -45,6 +52,7 @@ func Bootstrap(config *BootstrapConfig) {
 		UserController:    userController,
 		AuthMiddleware:    authMiddleware,
 		ProductController: productController,
+		OrderController:   orderController,
 		// @InjectRouteConfig
 	}
 	routes.SetupRoutes()

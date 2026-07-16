@@ -36,7 +36,7 @@ func generateValidToken() string {
 
 func generateInvalidTypeToken() string {
 	claims := jwt.MapClaims{
-		"id":    "invalid_type_string", // not float64
+		"id":    true, // neither float64 nor string
 		"email": "test@example.com",
 		"exp":   time.Now().Add(time.Hour).Unix(),
 	}

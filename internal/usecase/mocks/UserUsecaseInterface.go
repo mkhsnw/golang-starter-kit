@@ -15,7 +15,7 @@ type UserUsecaseInterface struct {
 }
 
 // GetCurrentUser provides a mock function with given fields: ctx, userID
-func (_m *UserUsecaseInterface) GetCurrentUser(ctx context.Context, userID uint64) (*model.UserResponse, error) {
+func (_m *UserUsecaseInterface) GetCurrentUser(ctx context.Context, userID string) (*model.UserResponse, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
@@ -24,10 +24,10 @@ func (_m *UserUsecaseInterface) GetCurrentUser(ctx context.Context, userID uint6
 
 	var r0 *model.UserResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) (*model.UserResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.UserResponse, error)); ok {
 		return rf(ctx, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) *model.UserResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.UserResponse); ok {
 		r0 = rf(ctx, userID)
 	} else {
 		if ret.Get(0) != nil {
@@ -35,7 +35,7 @@ func (_m *UserUsecaseInterface) GetCurrentUser(ctx context.Context, userID uint6
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(ctx, userID)
 	} else {
 		r1 = ret.Error(1)
