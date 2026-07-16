@@ -1,25 +1,49 @@
-basePath: /api
+basePath: /api/v1
 definitions:
   github_com_mkhsnw_golang-starter-kit_internal_model.CreateOrderRequest:
     properties:
-      status:
-        type: string
-      total_price:
-        type: number
-      user_id:
+      amount:
         type: integer
+      detail:
+        type: string
+      product_id:
+        type: string
+      total:
+        type: integer
+      user_id:
+        type: string
     required:
-    - status
-    - total_price
+    - amount
+    - product_id
+    - total
     - user_id
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.CreateProductRequest:
     properties:
       name:
-        maxLength: 100
+        type: string
+      notes:
         type: string
     required:
     - name
+    type: object
+  github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail:
+    properties:
+      code:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.FieldError'
+        type: array
+      message:
+        type: string
+    type: object
+  github_com_mkhsnw_golang-starter-kit_internal_model.FieldError:
+    properties:
+      field:
+        type: string
+      message:
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.LoginRequest:
     properties:
@@ -36,21 +60,27 @@ definitions:
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse:
     properties:
+      amount:
+        type: integer
       created_at:
-        type: integer
-      id:
-        type: integer
-      status:
         type: string
-      total_price:
-        type: number
+      detail:
+        type: string
+      id:
+        type: string
+      product_id:
+        type: string
+      total:
+        type: integer
       updated_at:
-        type: integer
+        type: string
       user_id:
-        type: integer
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata:
     properties:
+      next_cursor:
+        type: string
       page:
         type: integer
       size:
@@ -63,13 +93,15 @@ definitions:
   github_com_mkhsnw_golang-starter-kit_internal_model.ProductResponse:
     properties:
       created_at:
-        type: integer
+        type: string
       id:
-        type: integer
+        type: string
       name:
         type: string
+      notes:
+        type: string
       updated_at:
-        type: integer
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.RegisterRequest:
     properties:
@@ -95,43 +127,42 @@ definitions:
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.UpdateOrderRequest:
     properties:
-      status:
-        type: string
-      total_price:
-        type: number
-      user_id:
+      amount:
         type: integer
-    required:
-    - status
-    - total_price
-    - user_id
+      detail:
+        type: string
+      product_id:
+        type: string
+      total:
+        type: integer
+      user_id:
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.UpdateProductRequest:
     properties:
       name:
-        maxLength: 100
         type: string
-    required:
-    - name
+      notes:
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.UserResponse:
     properties:
       created_at:
-        type: integer
+        type: string
       email:
         type: string
       id:
-        type: integer
+        type: string
       name:
         type: string
       updated_at:
-        type: integer
+        type: string
     type: object
   github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any:
     properties:
       data: {}
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -141,8 +172,8 @@ definitions:
         items:
           $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse'
         type: array
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -152,8 +183,8 @@ definitions:
         items:
           $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ProductResponse'
         type: array
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -161,8 +192,8 @@ definitions:
   : properties:
       data:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse'
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -170,8 +201,8 @@ definitions:
   : properties:
       data:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ProductResponse'
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -179,8 +210,8 @@ definitions:
   : properties:
       data:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.TokenResponse'
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -188,8 +219,8 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.UserResponse'
-      errors:
-        type: string
+      error:
+        $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail'
       paging:
         $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata'
     type: object
@@ -200,7 +231,7 @@ info:
   title: Golang Starter Kit API
   version: "1.0"
 paths:
-  /login:
+  /auth/login:
     post:
       consumes:
       - application/json
@@ -226,15 +257,41 @@ paths:
       summary: Login user
       tags:
       - users
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with name, email, and password
+      parameters:
+      - description: Register Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-github_com_mkhsnw_golang-starter-kit_internal_model_UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any'
+      summary: Register a new user
+      tags:
+      - users
   /orders:
     get:
       description: Get a paginated list of orders
       parameters:
-      - default: 1
-        description: Page number
+      - default: '""'
+        description: Cursor ID
         in: query
-        name: page
-        type: integer
+        name: cursor
+        type: string
       - default: 10
         description: Page size
         in: query
@@ -287,7 +344,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       responses:
         "204":
           description: No Content
@@ -307,7 +364,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -333,7 +390,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       - description: Update Request
         in: body
         name: body
@@ -421,7 +478,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       responses:
         "204":
           description: No Content
@@ -441,7 +498,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -467,7 +524,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       - description: Update Request
         in: body
         name: body
@@ -494,32 +551,6 @@ paths:
       summary: Update Product
       tags:
       - products
-  /register:
-    post:
-      consumes:
-      - application/json
-      description: Register a new user with name, email, and password
-      parameters:
-      - description: Register Request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-github_com_mkhsnw_golang-starter-kit_internal_model_UserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any'
-      summary: Register a new user
-      tags:
-      - users
   /users/current:
     get:
       consumes:

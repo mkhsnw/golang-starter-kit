@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/login": {
+        "/auth/login": {
             "post": {
                 "description": "Authenticate user and get JWT token",
                 "consumes": [
@@ -55,6 +55,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/register": {
+            "post": {
+                "description": "Register a new user with name, email, and password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Register Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-github_com_mkhsnw_golang-starter-kit_internal_model_UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any"
+                        }
+                    }
+                }
+            }
+        },
         "/orders": {
             "get": {
                 "security": [
@@ -72,10 +112,10 @@ const docTemplate = `{
                 "summary": "Get all orders",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
-                        "name": "page",
+                        "type": "string",
+                        "default": "\"\"",
+                        "description": "Cursor ID",
+                        "name": "cursor",
                         "in": "query"
                     },
                     {
@@ -156,7 +196,7 @@ const docTemplate = `{
                 "summary": "Get Order by ID",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Order ID",
                         "name": "id",
                         "in": "path",
@@ -197,7 +237,7 @@ const docTemplate = `{
                 "summary": "Update Order",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Order ID",
                         "name": "id",
                         "in": "path",
@@ -247,7 +287,7 @@ const docTemplate = `{
                 "summary": "Delete Order",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Order ID",
                         "name": "id",
                         "in": "path",
@@ -368,7 +408,7 @@ const docTemplate = `{
                 "summary": "Get Product by ID",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Product ID",
                         "name": "id",
                         "in": "path",
@@ -409,7 +449,7 @@ const docTemplate = `{
                 "summary": "Update Product",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Product ID",
                         "name": "id",
                         "in": "path",
@@ -459,7 +499,7 @@ const docTemplate = `{
                 "summary": "Delete Product",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "Product ID",
                         "name": "id",
                         "in": "path",
@@ -472,46 +512,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any"
-                        }
-                    }
-                }
-            }
-        },
-        "/register": {
-            "post": {
-                "description": "Register a new user with name, email, and password",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "Register Request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-github_com_mkhsnw_golang-starter-kit_internal_model_UserResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.WebResponse-any"
                         }
@@ -558,19 +558,26 @@ const docTemplate = `{
         "github_com_mkhsnw_golang-starter-kit_internal_model.CreateOrderRequest": {
             "type": "object",
             "required": [
-                "status",
-                "total_price",
+                "amount",
+                "product_id",
+                "total",
                 "user_id"
             ],
             "properties": {
-                "status": {
+                "amount": {
+                    "type": "integer"
+                },
+                "detail": {
                     "type": "string"
                 },
-                "total_price": {
-                    "type": "number"
+                "product_id": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
@@ -581,8 +588,38 @@ const docTemplate = `{
             ],
             "properties": {
                 "name": {
-                    "type": "string",
-                    "maxLength": 100
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.FieldError"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_mkhsnw_golang-starter-kit_internal_model.FieldError": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
@@ -607,29 +644,38 @@ const docTemplate = `{
         "github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse": {
             "type": "object",
             "properties": {
+                "amount": {
+                    "type": "integer"
+                },
                 "created_at": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "status": {
                     "type": "string"
                 },
-                "total_price": {
-                    "type": "number"
+                "detail": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
                 },
                 "updated_at": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
         "github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata": {
             "type": "object",
             "properties": {
+                "next_cursor": {
+                    "type": "string"
+                },
                 "page": {
                     "type": "integer"
                 },
@@ -648,16 +694,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
+                "notes": {
+                    "type": "string"
+                },
                 "updated_at": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
@@ -694,32 +743,32 @@ const docTemplate = `{
         },
         "github_com_mkhsnw_golang-starter-kit_internal_model.UpdateOrderRequest": {
             "type": "object",
-            "required": [
-                "status",
-                "total_price",
-                "user_id"
-            ],
             "properties": {
-                "status": {
+                "amount": {
+                    "type": "integer"
+                },
+                "detail": {
                     "type": "string"
                 },
-                "total_price": {
-                    "type": "number"
+                "product_id": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
         "github_com_mkhsnw_golang-starter-kit_internal_model.UpdateProductRequest": {
             "type": "object",
-            "required": [
-                "name"
-            ],
             "properties": {
                 "name": {
-                    "type": "string",
-                    "maxLength": 100
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
                 }
             }
         },
@@ -727,19 +776,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "email": {
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
                 "updated_at": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
@@ -747,8 +796,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {},
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -764,8 +813,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse"
                     }
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -781,8 +830,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ProductResponse"
                     }
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -795,8 +844,8 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.OrderResponse"
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -809,8 +858,8 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ProductResponse"
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -823,8 +872,8 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.TokenResponse"
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -837,8 +886,8 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.UserResponse"
                 },
-                "errors": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.ErrorDetail"
                 },
                 "paging": {
                     "$ref": "#/definitions/github_com_mkhsnw_golang-starter-kit_internal_model.PageMetadata"
@@ -859,7 +908,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:3000",
-	BasePath:         "/api",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Golang Starter Kit API",
 	Description:      "This is a sample API for Golang Starter Kit.",

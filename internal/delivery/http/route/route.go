@@ -40,8 +40,9 @@ func (c *RouteConfig) setupAuthRoutes(api fiber.Router) {
 		Expiration: 1 * time.Minute,
 	})
 
-	api.Post("/register", c.UserController.Register, authLimiter)
-	api.Post("/login", c.UserController.Login, authLimiter)
+	auth := api.Group("/auth")
+	auth.Post("/register", c.UserController.Register, authLimiter)
+	auth.Post("/login", c.UserController.Login, authLimiter)
 }
 
 func (c *RouteConfig) setupUserRoutes(api fiber.Router) {

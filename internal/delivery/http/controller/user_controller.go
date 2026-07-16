@@ -29,7 +29,7 @@ func NewUserController(userUsecase usecase.UserUsecaseInterface, validate *valid
 // @Param body body model.RegisterRequest true "Register Request"
 // @Success 201 {object} model.WebResponse[model.UserResponse]
 // @Failure 400 {object} model.WebResponse[any]
-// @Router /register [post]
+// @Router /auth/register [post]
 func (c *UserController) Register(ctx fiber.Ctx) error {
 	var req model.RegisterRequest
 	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
@@ -55,7 +55,7 @@ func (c *UserController) Register(ctx fiber.Ctx) error {
 // @Param body body model.LoginRequest true "Login Request"
 // @Success 200 {object} model.WebResponse[model.TokenResponse]
 // @Failure 401 {object} model.WebResponse[any]
-// @Router /login [post]
+// @Router /auth/login [post]
 func (c *UserController) Login(ctx fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := util.ParseAndValidate(ctx, c.Validator, &req); err != nil {
