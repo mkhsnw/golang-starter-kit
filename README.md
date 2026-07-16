@@ -1,141 +1,309 @@
 # 🚀 Golang Starter Kit (Fiber + GORM + Clean Architecture)
 
-Starter Kit modern untuk pengembangan backend Golang menggunakan **Clean Architecture** (berbasis *Dependency Inversion/Interface*). Proyek ini dilengkapi dengan modul-modul generator (CRUD otomatis), dukungan Swagger UI (OpenAPI), struktur Unit Testing (Testify + Mockery), dan pengelolaan environment/konfigurasi otomatis.
+Starter kit backend Go yang dirancang supaya kamu (atau siapa pun yang lanjutin project ini) bisa langsung fokus nulis business logic, bukan sibuk bikin ulang boilerplate CRUD, wiring dependency injection, atau mikirin format error yang konsisten.
+
+Dokumen ini nggak cuma ngasih tahu perintah apa yang harus diketik, tapi juga **kenapa** struktur project ini dibuat begini, dan **bagaimana** semua bagiannya saling terhubung.
 
 ---
 
-## ✨ Fitur Unggulan
-- **Fiber v3** sebagai *Web Framework* yang super cepat.
-- **GORM** sebagai ORM.
-- **Clean Architecture** yang ketat dengan ekstensi **Generic Repository**.
-- **Interface-based Usecase/Controller** yang siap pakai untuk *Mocking* di Unit Test.
-- **Anotasi Swagger** ter-generasi secara otomatis.
-- **Code Generator Tool** bawaan untuk men-generate semua *boilerplate* secara instan.
-- **Task Runner (go-task)** - Pengganti Makefile yang cross-platform dan bekerja sempurna di Windows.
+## 📖 Daftar Isi
+
+1. [Arsitektur & Alur Request](#-arsitektur--alur-request)
+2. [Persiapan Awal](#️-persiapan-awal-setup)
+3. [Menjalankan Server](#-menjalankan-server)
+4. [Migrasi Database](#-migrasi-database)
+5. [Membuat Fitur Baru (Generator)](#️-membuat-fitur-baru-generator)
+6. [Kapan Perlu Row-Locking?](#-kapan-perlu-row-locking)
+7. [Alur Autentikasi](#-alur-autentikasi)
+8. [Format Response API](#-format-response-api)
+9. [Testing & Mocks](#-testing--mocks)
+10. [Swagger Docs](#-swagger-docs)
+11. [Perintah Lainnya](#-perintah-lainnya)
+12. [Catatan & Rencana Pengembangan](#-catatan--rencana-pengembangan)
 
 ---
 
-## 🛠️ 1. Persiapan Awal (Setup)
+## 🏛️ Arsitektur & Alur Request
+
+Setiap fitur di project ini mengikuti **Clean Architecture** — dipecah jadi beberapa layer yang masing-masing punya 1 tanggung jawab spesifik. Ini sengaja dipisah supaya business logic kamu nggak nempel ke framework HTTP atau ke cara kerja database — kalau suatu hari kamu ganti Fiber ke framework lain, atau ganti MySQL ke Postgres, layer di tengah (`usecase`) idealnya nggak perlu disentuh sama sekali.
+
+Begini alur 1 request dari masuk sampai keluar:
+
+```
+HTTP Request
+    │
+    ▼
+┌─────────────┐   Terima request, parsing & validasi input,
+│   Route     │   panggil Controller yang sesuai
+└─────┬───────┘
+      ▼
+┌─────────────┐   Terima input yang sudah tervalidasi,
+│  Controller │   panggil Usecase, bungkus hasilnya jadi
+└─────┬───────┘   response JSON standar
+      ▼
+┌─────────────┐   Tempat business logic & aturan bisnis
+│   Usecase   │   hidup (cek duplikat, hitung stok, dst)
+└─────┬───────┘
+      ▼
+┌─────────────┐   Akses data mentah ke database
+│ Repository  │   (Create/FindByID/Update/Delete/dst)
+└─────┬───────┘
+      ▼
+┌─────────────┐
+│   Entity    │   Representasi tabel database (struct GORM)
+└─────────────┘
+      │
+      ▼
+   Database
+```
+
+### Kenapa 1 fitur jadi banyak file?
+
+Kalau kamu generate 1 modul (misal `Product`), akan muncul beberapa file berbeda — ini bukan biar ribet, tiap file punya tugas jelas:
+
+| File | Isinya | Kenapa dipisah |
+|---|---|---|
+| `entity/product_entity.go` | Struct yang merepresentasikan tabel `products` di database | Supaya struktur database terpisah dari struktur API |
+| `model/product_model.go` | DTO request (`CreateProductRequest`) & response (`ProductResponse`) | Supaya field sensitif (misal `Password` di `User`) nggak pernah kebawa ke JSON response tanpa sengaja |
+| `repository/product_repository.go` | Query ke database (pakai generic `Repository[T]` di baliknya) | Supaya usecase nggak perlu tahu detail SQL/GORM |
+| `usecase/product_usecase.go` | Business logic — validasi, aturan bisnis, transaksi | Ini "otak" fitur, dan sengaja dipisah dari HTTP supaya gampang di-unit-test tanpa perlu jalanin server |
+| `delivery/http/controller/product_controller.go` | Terima HTTP request, panggil usecase, kembalikan response | Satu-satunya layer yang "tahu" soal Fiber |
+
+---
+
+## 🛠️ Persiapan Awal (Setup)
 
 ### Kloning & Instalasi
-1. Kloning repositori ini.
-2. Pastikan Go (minimal 1.21) terpasang di mesin Anda.
-3. Anda tidak butuh `make`. Install **Task runner** sebagai pendamping Anda:
+
+1. Kloning repository ini.
+2. Pastikan Go (minimal versi 1.21) sudah terpasang.
+3. Install **Task** — pengganti `make` yang cross-platform, jalan normal di Windows:
    ```powershell
    go install github.com/go-task/task/v3/cmd/task@latest
    ```
 
-### Konfigurasi Environment (env.json)
-Kredensial disimpan dalam `env.json` yang di-ignore oleh git untuk menjaga keamanan.
-1. Salin *template* konfigurasi:
-   ```powershell
-   cp env.example.json env.json
-   ```
-2. Buka `env.json` dan ubah konfigurasi **Database** (MySQL) serta **JWT Secret** sesuai keinginan Anda.
+### Konfigurasi Environment (`env.json`)
 
-### Menginstal Dependensi Developer (DX)
-Untuk pertama kali, instal *tooling* pendukung (*linter*, *hot reload*, *mockery*, dan *swaggo*):
+Kredensial disimpan di `env.json`, yang sudah otomatis di-*ignore* git supaya nggak ke-commit nggak sengaja.
+
+```powershell
+cp env.example.json env.json
+```
+
+Buka `env.json`, sesuaikan bagian `database` (kredensial MySQL) dan `jwt` (secret key). **Jangan pernah commit `env.json` yang isinya kredensial asli** — itu kenapa file ini digitignore, `env.example.json` yang jadi acuan untuk orang lain.
+
+### Install Tooling Developer
+
+Sekali di awal, install semua tool pendukung (linter, hot-reload, mock generator, swagger generator):
+
 ```powershell
 task init
 ```
-> **Penting (Windows):** Pastikan direktori `C:\Users\<NAMA_USER>\go\bin` sudah terdaftar ke dalam Environment Variable `PATH` komputer Anda agar eksekusi `task`, `swag`, dan `mockery` berjalan normal.
+
+> **Windows:** pastikan `C:\Users\<NAMA_USER>\go\bin` sudah masuk `PATH`, supaya `task`, `swag`, dan `mockery` bisa dipanggil dari terminal mana pun.
 
 ---
 
-## ⚡ 2. Menjalankan Server & API
+## ⚡ Menjalankan Server
 
-Pastikan server MySQL Anda sedang aktif dan *database* yang disebut dalam `env.json` sudah dibuat.
+Pastikan MySQL sudah aktif dan database yang disebut di `env.json` sudah dibuat (database-nya sendiri, bukan tabelnya — tabel dibuat lewat migration, lihat section berikutnya).
 
 ```powershell
-# Menjalankan server dengan live-reload (Air)
-task dev
-
-# Atau menjalankan langsung dengan go run
-go run cmd/main.go
+task dev          # jalan dengan hot-reload (Air) — dipakai sehari-hari
+go run cmd/main.go # atau jalan langsung tanpa hot-reload
 ```
-API sekarang akan merespon pada port `3000`!
+
+Server aktif di `http://localhost:3000`.
 
 ---
 
-## 🏗️ 3. Membuat Fitur (Generate Module)
+## 🗄️ Migrasi Database
 
-Salah satu keunggulan boilerplate ini adalah *Code Generator*. Anda tidak perlu lagi membuat Controller, Usecase, Repository, Model, atau Unit Test satu per satu. Semua primary key secara standar dikunci menggunakan **UUID v7 (string)** demi performa B-Tree index yang maksimal dan keamanan dari *enumeration attack*.
+Project ini pakai migration berbasis file SQL (`golang-migrate`), **bukan** `AutoMigrate()` GORM — supaya perubahan skema database selalu tercatat jelas riwayatnya, dan supaya production nggak pernah ubah skema secara "diam-diam" saat aplikasi start.
 
-Gunakan CLI generator bawaan (via Task runner). Argumen disuplai menggunakan format `key=value` (tanpa pemisah `--`):
 ```powershell
-# Contoh: Membuat fitur Product (Master Data biasa, non-transaksional)
-task gen name=Product fields="name:string,price:float64,is_active:bool"
+task migrate-up              # terapkan semua migration yang belum jalan
+task migrate-down             # rollback 1 migration terakhir
+task migrate-version          # lihat versi migration saat ini di database
+task migrate-create name=xxx  # bikin file migration kosong (misal nambah kolom ke tabel yang sudah ada)
+```
 
-# Contoh: Membuat fitur Order (Transactional Data) dengan Foreign Key
-# - Menambahkan tx=true akan membungkus method Create, Update, dan Delete usecase ke dalam transaksi database yang aman.
-# - Penamaan field berakhiran '_id' (seperti 'user_id') akan otomatis dideteksi sebagai Foreign Key yang merujuk ke tabel referensi jamak ('users') dengan aksi ON DELETE CASCADE di level SQL database.
+Setiap kali kamu generate modul baru lewat `task gen` (lihat section berikutnya), file migration `.up.sql`/`.down.sql` otomatis dibuat di `db/migration/` — tinggal `task migrate-up` buat menerapkannya, atau tambahkan flag `migrate=true` supaya langsung diterapkan otomatis.
+
+---
+
+## 🏗️ Membuat Fitur Baru (Generator)
+
+Ini fitur andalan starter kit ini: generate 1 modul CRUD lengkap (entity, model, repository, usecase, controller, test, migration, plus registrasi otomatis ke route & dependency injection) hanya dengan 1 command.
+
+```powershell
+task gen name=Product fields="name:string,price:float64,is_active:bool"
+```
+
+Semua primary key secara default pakai **UUID v7** (bukan angka auto-increment biasa). Ini keputusan sadar: UUID v7 tetap *time-ordered* (jadi performa index database tetap bagus), tapi ID-nya nggak bisa ditebak urutannya — mencegah orang luar nge-enumerasi data kamu cuma dengan mengganti angka di URL (`/products/1`, `/products/2`, dst).
+
+### Field dengan Foreign Key
+
+Field yang namanya berakhiran `_id` (misal `category_id`) otomatis dikenali sebagai foreign key:
+
+```powershell
 task gen name=Order fields="user_id:string,total:float64,note:text?" tx=true migrate=true
 ```
 
-### Konvensi Foreign Key Otomatis:
-Jika Anda menambahkan field berakhiran `_id` (misalnya `category_id`), generator secara otomatis:
-1. Menjadikan tipe SQL kolom tersebut `VARCHAR(36)` agar cocok dengan tipe UUID v7 tabel referensi.
-2. Membuat index database untuk kolom tersebut (`idx_<table_name>_<field_name>`).
-3. Menambahkan constraint foreign key di SQL:
-   `CONSTRAINT fk_categories_category_id FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE`
+Generator otomatis akan:
+1. Set tipe kolom SQL jadi `VARCHAR(36)` (cocok dengan UUID v7 tabel yang direferensikan)
+2. Bikin index (`idx_orders_user_id`)
+3. Tambahkan foreign key constraint dengan `ON DELETE CASCADE`
 
-Langkah ini secara **otomatis** membuat:
-- `internal/entity/product.go`
-- `internal/model/product_model.go`
-- `internal/repository/product_repository.go`
-- `internal/usecase/product_usecase.go`
-- `internal/delivery/http/controller/product_controller.go`
-- `internal/usecase/product_usecase_test.go` (Unit Test Lengkap dengan Mocks)
-- `internal/delivery/http/controller/product_controller_test.go` (Integration Test Lengkap)
-- Registrasi route & dependency injection baru di `app.go`, `route.go`, dan `interfaces.go`.
+### Kapan pakai flag `tx=true`?
 
-**Menghapus Modul (Rollback):**
-Jika Anda salah mengetik nama atau sekadar ingin menghapus modul yang baru digenerate secara bersih (termasuk mencabut injeksinya), gunakan perintah `rm`:
-```powershell
-task rm name=Product
+Tambahkan `tx=true` kalau operasi Create/Update/Delete modul ini **melibatkan lebih dari 1 tabel yang harus berhasil/gagal bersamaan** (misal: bikin `Order` sekaligus mengurangi `Stock` di `Product`). Flag ini membungkus operasi write ke dalam database transaction — kalau salah satu langkah gagal di tengah jalan, semua perubahan otomatis dibatalkan (rollback), nggak ada data setengah-jadi yang nyangkut.
+
+Kalau modul kamu berdiri sendiri tanpa keterkaitan ke tabel lain (misal `Category` yang cuma disimpan sendiri), nggak perlu flag ini.
+
+### File yang otomatis dibuat
+
+```
+internal/entity/product_entity.go
+internal/model/product_model.go
+internal/repository/product_repository.go
+internal/usecase/product_usecase.go
+internal/delivery/http/controller/product_controller.go
+internal/usecase/product_usecase_test.go
+internal/delivery/http/controller/product_controller_test.go
+db/migration/xxxxx_create_products_table.up.sql (+ .down.sql)
 ```
 
+Plus registrasi otomatis ke `app.go`, `route.go`, dan `interfaces.go` — kamu nggak perlu wiring manual apa pun.
 
-**Langkah Manual Lanjutan:**
-Setelah fitur digenerate, buka `internal/config/gorm.go` lalu tambahkan struct entity yang baru terbentuk (`entity.Transaction{}`) ke fungsi `AutoMigrate()` agar tabel SQL terbentuk otomatis.
+### Opsi lain generator
+
+```powershell
+task gen name=Product fields="..." dry=true    # preview dulu, nggak nulis file apa pun
+task gen name=Product fields="..." force=true  # timpa file yang sudah ada
+task rm name=Product                            # hapus modul + bersihkan semua registrasinya
+```
 
 ---
 
-## 🧪 4. Meng-generate Mocks & Unit Test
+## 🔒 Kapan Perlu Row-Locking?
 
-Semua Usecase di proyek ini terpisah dari database oleh *Interface*. Setiap Anda meng-generate modul baru, atau mengedit fungsi Interface (`interfaces.go`), Anda perlu memperbarui **Mock**. Generator secara otomatis men-generate file Test yang komprehensif, Anda hanya perlu menjalankan:
+Untuk operasi yang sifatnya "baca nilai → putuskan sesuatu → tulis ulang nilai itu" (misal mengurangi stok, memotong saldo), transaksi biasa (`tx=true`) **saja belum cukup** — dua request yang datang bersamaan tetap bisa sama-sama baca nilai lama sebelum salah satu sempat menyimpan perubahan.
 
+Untuk kasus ini, `Repository[T]` menyediakan `FindByIDForUpdate` yang mengunci baris tersebut sampai transaksi selesai:
+
+```go
+err := u.TxManager.Run(ctx, func(ctxTx context.Context) error {
+    product, err := u.ProductRepository.FindByIDForUpdate(ctxTx, req.ProductId)
+    if err != nil {
+        return exception.NotFound("Product not found")
+    }
+    if product.Stock < req.Amount {
+        return exception.Conflict("Insufficient stock")
+    }
+    product.Stock -= req.Amount
+    return u.ProductRepository.Update(ctxTx, product)
+})
+```
+
+**Aturan praktis:** kalau cuma menampilkan data (`GetByID` untuk halaman detail), pakai `FindByID` biasa — jangan pakai locking di situ karena cuma akan memperlambat request lain tanpa manfaat. Locking cuma diperlukan kalau race condition-nya benar-benar bisa merusak data (stok minus, saldo dobel terpotong, dsb).
+
+---
+
+## 🔑 Alur Autentikasi
+
+```
+1. POST /api/v1/auth/register   → { name, email, password }
+2. POST /api/v1/auth/login      → { email, password }
+                                 → balikin { "data": { "token": "xxx" } }
+3. Sertakan token di setiap request ke endpoint yang butuh login:
+
+   Authorization: Bearer xxx
+```
+
+Middleware auth akan otomatis menolak (401) kalau token nggak ada, salah format, atau sudah kedaluwarsa — kamu nggak perlu cek ulang manual di tiap controller.
+
+---
+
+## 📦 Format Response API
+
+Semua response API (sukses maupun error) mengikuti bentuk yang sama, supaya predictable buat siapa pun yang konsumsi API ini.
+
+**Sukses (single item):**
+```json
+{ "data": { "id": "...", "name": "..." } }
+```
+
+**Sukses (list dengan pagination):**
+```json
+{
+  "data": [ { "id": "...", "name": "..." } ],
+  "paging": { "page": 1, "size": 10, "total_item": 42, "total_page": 5 }
+}
+```
+
+**Error:**
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input",
+    "fields": [
+      { "field": "email", "message": "failed on 'required' validation" }
+    ]
+  }
+}
+```
+
+`code` di sini machine-readable — dipakai frontend buat `switch-case` tanpa perlu parsing teks pesan errornya. Beberapa `code` yang tersedia: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `UNAUTHORIZED`, `FORBIDDEN`, `BAD_REQUEST`.
+
+---
+
+## 🧪 Testing & Mocks
+
+Semua Usecase bergantung ke *interface*, bukan struct konkret — supaya bisa diuji tanpa perlu koneksi database asli.
+
+Setiap kali generate modul baru atau mengubah `interfaces.go`, perbarui mock-nya:
 ```powershell
-# Perbarui mock file untuk Test
 task mock
 ```
-Setelah Mock dibuat, file test yang dihasilkan (sudah dilengkapi dengan `testify/assert` dan `testify/mock`) siap dikompilasi!
 
-Untuk menjalankan seluruh Test sekaligus melihat **Laporan Cakupan (Coverage Report)**:
+Lalu jalankan semua test sekaligus lihat laporan cakupannya:
 ```powershell
 task test
 ```
 
 ---
 
-## 📖 5. Meng-generate Swagger Docs
+## 📖 Swagger Docs
 
-Anotasi Swagger telah disisipkan ke seluruh Controller saat *Code Generator* dieksekusi. Jika Anda menambah endpoint atau mengubah model parameter, perbarui dokumen API dengan:
+Anotasi Swagger otomatis tersisip di controller saat generate. Setiap ada perubahan endpoint/model, regenerate dokumentasinya:
 
 ```powershell
-# Men-generate ulang docs
 task docs
 ```
-Lalu kunjungi saat server menyala:
-👉 **[http://localhost:3000/docs/index.html](http://localhost:3000/docs/index.html)**
+
+Lalu buka (saat server jalan): **http://localhost:3000/docs/index.html**
 
 ---
 
 ## 🔨 Perintah Lainnya
 
-Boilerplate menyediakan script `Taskfile.yml` singkat untuk kebutuhan esensial. Anda dapat mengetik `task help` untuk melihat ringkasan perintah lengkap, atau menggunakan menu standar:
-- `task help`  : Menampilkan dokumentasi interaktif seluruh perintah runner
-- `task lint`  : Mengecek *code-style* menggunakan `golangci-lint`
-- `task fmt`   : Memformat ulang kode agar rapi (`go fmt`)
-- `task build` : Meng-compile *binary release* aplikasi ke direktori `bin/app`.
+```powershell
+task help    # dokumentasi interaktif semua command
+task lint    # cek code-style (golangci-lint)
+task fmt     # format ulang kode (go fmt)
+task build   # compile binary release ke bin/app
+```
 
+---
+
+## 📝 Catatan & Rencana Pengembangan
+
+Supaya ekspektasinya jelas — starter kit ini sudah solid untuk mulai membangun dan deploy aplikasi skala kecil-menengah. Beberapa hal berikut **belum** ada dan disengaja untuk ditambahkan nanti kalau kebutuhannya sudah nyata (bukan diantisipasi dari awal):
+
+- **CI/CD** (GitHub Actions) — `task test` & `task lint` belum otomatis jalan tiap push
+- **Refresh token** — JWT saat ini single-token, belum bisa di-revoke sebelum expired
+- **Rate limiter terdistribusi (Redis)** — limiter saat ini in-memory, akurat selama aplikasi jalan di 1 instance; perlu dipindah ke Redis kalau nanti di-scale ke banyak instance
+
+Kalau kamu berkontribusi ke project ini, silakan cek 3 poin di atas dulu sebagai starting point.

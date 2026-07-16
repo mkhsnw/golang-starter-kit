@@ -480,7 +480,9 @@ func renderFile(f fileToGenerate, mod ModuleNames, force bool) error {
 		return fmt.Errorf("file sudah ada, dilewati (gunakan --force untuk menimpa): %s", f.OutputPath)
 	}
 
-	tmpl, err := template.ParseFS(templateFS, "templates/"+f.TemplateName)
+	tmpl, err := template.New(f.TemplateName).Funcs(template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}).ParseFS(templateFS, "templates/"+f.TemplateName)
 	if err != nil {
 		return err
 	}
