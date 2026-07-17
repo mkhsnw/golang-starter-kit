@@ -72,8 +72,10 @@ tasks:
 
   gokit-new:
     desc: Scaffold a new project
+    vars:
+      name: '{{.name | default ""}}'
     cmds:
-      - go run cmd/new/main.go {{.CLI_ARGS}}
+      - go run cmd/new/main.go "{{.name}}"
 
 
   migrate-create:

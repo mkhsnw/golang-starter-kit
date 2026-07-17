@@ -105,7 +105,7 @@ func copyDir(src string, dst string) error {
 		}
 
 		// Skip .git, .github, env.json, and other unnecessary things for a fresh project
-		if d.IsDir() && (d.Name() == ".git" || d.Name() == ".github" || d.Name() == "tmp" || d.Name() == ".idea" || d.Name() == ".vscode" || d.Name() == "bin" || d.Name() == "docs") {
+		if d.IsDir() && (d.Name() == ".git" || d.Name() == ".github" || d.Name() == "tmp" || d.Name() == ".idea" || d.Name() == ".vscode" || d.Name() == "bin") {
 			return filepath.SkipDir
 		}
 		if !d.IsDir() && (d.Name() == "env.json" || d.Name() == "coverage.out" || strings.HasSuffix(d.Name(), ".exe")) {
