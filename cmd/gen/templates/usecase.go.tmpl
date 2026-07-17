@@ -6,11 +6,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/mkhsnw/golang-starter-kit/internal/entity"
-	"github.com/mkhsnw/golang-starter-kit/internal/exception"
-	"github.com/mkhsnw/golang-starter-kit/internal/model"
-	"github.com/mkhsnw/golang-starter-kit/internal/repository"
-	"github.com/mkhsnw/golang-starter-kit/internal/util"
+	"{{.ModuleName}}/internal/entity"
+	"{{.ModuleName}}/internal/exception"
+	"{{.ModuleName}}/internal/model"
+	"{{.ModuleName}}/internal/repository"
+	"{{.ModuleName}}/internal/util"
 )
 
 type {{.Pascal}}Usecase struct {

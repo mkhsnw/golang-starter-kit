@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
-	"github.com/mkhsnw/golang-starter-kit/internal/config"
-	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/controller"
-	"github.com/mkhsnw/golang-starter-kit/internal/model"
-	ucmocks "github.com/mkhsnw/golang-starter-kit/internal/usecase/mocks"
+	"{{.ModuleName}}/internal/config"
+	"{{.ModuleName}}/internal/delivery/http/controller"
+	"{{.ModuleName}}/internal/model"
+	ucmocks "{{.ModuleName}}/internal/usecase/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -15,7 +15,7 @@ import (
 func printHelp() {
 	fmt.Print(`
 ╔══════════════════════════════════════════════════════════════╗
-║              golang-starter-kit Generator CLI                ║
+║              Generator CLI                                   ║
 ╚══════════════════════════════════════════════════════════════╝
 
 USAGE:
@@ -130,12 +130,28 @@ type Field struct {
 }
 
 type ModuleNames struct {
-	Pascal   string // "Product"
-	Snake    string // "product"
-	Camel    string // "product"
-	Plural   string // "products"
-	Fields   []Field
-	IsTx     bool   // true if --tx flag is passed
+	Pascal     string // "Product"
+	Snake      string // "product"
+	Camel      string // "product"
+	Plural     string // "products"
+	Fields     []Field
+	IsTx       bool   // true if --tx flag is passed
+	ModuleName string // e.g., "github.com/username/project"
+}
+
+func getModuleName() string {
+	data, err := os.ReadFile("go.mod")
+	if err != nil {
+		return "github.com/mkhsnw/golang-starter-kit"
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return "github.com/mkhsnw/golang-starter-kit"
 }
 
 func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
@@ -186,12 +202,13 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 	}
 
 	return ModuleNames{
-		Pascal:  pascal,
-		Snake:   snake,
-		Camel:   camel,
-		Plural:  pluralize(snake),
-		Fields:  fields,
-		IsTx:    isTx,
+		Pascal:     pascal,
+		Snake:      snake,
+		Camel:      camel,
+		Plural:     pluralize(snake),
+		Fields:     fields,
+		IsTx:       isTx,
+		ModuleName: getModuleName(),
 	}
 }
 
