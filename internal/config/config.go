@@ -5,6 +5,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Log      LogConfig      `mapstructure:"log"`
 	JWT      JwtConfig      `mapstructure:"jwt"`
+	Redis    RedisConfig    `mapstructure:"redis"`
 }
 
 type AppConfig struct {
@@ -34,6 +35,15 @@ type LogConfig struct {
 }
 
 type JwtConfig struct {
-	Secret          string `mapstructure:"secret"`
-	ExpirationHours int    `mapstructure:"expiration_hours"`
+	Secret                string `mapstructure:"secret"`
+	ExpirationHours       int    `mapstructure:"expiration_hours"`
+	RefreshSecret         string `mapstructure:"refresh_secret"`
+	RefreshExpirationDays int    `mapstructure:"refresh_expiration_days"`
+}
+
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	Database int    `mapstructure:"database"`
 }

@@ -20,8 +20,11 @@ import (
 	"github.com/mkhsnw/golang-starter-kit/internal/exception"
 	"github.com/mkhsnw/golang-starter-kit/internal/model"
 	"github.com/mkhsnw/golang-starter-kit/internal/util"
+	"github.com/gofiber/storage/redis/v3"
 	"gorm.io/gorm"
 )
+
+var sensitiveBodyPaths = []string{"/api/v1/auth/login", "/api/v1/auth/register"}
 
 func NewFiber(config *Config, db *gorm.DB, log *logrus.Logger) *fiber.App {
 
@@ -57,8 +60,16 @@ func NewFiber(config *Config, db *gorm.DB, log *logrus.Logger) *fiber.App {
 	app.Use(func(ctx fiber.Ctx) error {
 		err := ctx.Next()
 		if ctx.Response().StatusCode() >= fiber.StatusInternalServerError {
-			body := ctx.Body()
-			if len(body) > 0 {
+			isSensitive := false
+			for _, p := range sensitiveBodyPaths {
+				if ctx.Path() == p {
+					isSensitive = true
+					break
+				}
+			}
+			if isSensitive {
+				log.Errorf("[5xx Error] Method: %s | Path: %s | Body: [REDACTED - sensitive endpoint]", ctx.Method(), ctx.Path())
+			} else if body := ctx.Body(); len(body) > 0 {
 				log.Errorf("[5xx Error Details] Method: %s | Path: %s | Body: %s", ctx.Method(), ctx.Path(), string(body))
 			}
 		}
@@ -73,12 +84,17 @@ func NewFiber(config *Config, db *gorm.DB, log *logrus.Logger) *fiber.App {
 		Level: compress.LevelBestSpeed,
 	}))
 
-	// WARNING: In-memory rate limiting is not stateless. If you scale this application horizontally
-	// (e.g. multiple pods in Kubernetes or multi-instance deployment), each instance will maintain
-	// its own rate limit counter. For production/multi-instance setups, configure a Redis store.
+	redisStorage := redis.New(redis.Config{
+		Host:     config.Redis.Host,
+		Port:     config.Redis.Port,
+		Password: config.Redis.Password,
+		Database: config.Redis.Database,
+	})
+
 	app.Use(limiter.New(limiter.Config{
 		Max:        100,
 		Expiration: 1 * time.Minute,
+		Storage:    redisStorage,
 		Next: func(ctx fiber.Ctx) bool {
 			// Skip limiter for swagger docs
 			return strings.HasPrefix(ctx.Path(), "/api/v1/docs")

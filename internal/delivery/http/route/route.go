@@ -1,20 +1,15 @@
 package route
 
 import (
-	"time"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
-	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/controller"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	UserController    *controller.UserController
-	ProductController *controller.ProductController
-	OrderController   *controller.OrderController
+	App            *fiber.App
+	UserController *controller.UserController
 	// @InjectRouteStruct
 	AuthMiddleware fiber.Handler
 }
@@ -28,45 +23,24 @@ func (c *RouteConfig) SetupRoutes() {
 
 	// Setup Protected Routes
 	apiAuth := api.Group("/", c.AuthMiddleware)
+	apiAuth.Post("/auth/logout", c.UserController.Logout) // Map logout here explicitly
+
 	c.setupUserRoutes(apiAuth)
-	c.setupProductRoutes(apiAuth)
-	c.setupOrderRoutes(apiAuth)
 	// @InjectRouteSetup
 }
 
 func (c *RouteConfig) setupAuthRoutes(api fiber.Router) {
-	authLimiter := limiter.New(limiter.Config{
-		Max:        5,
-		Expiration: 1 * time.Minute,
-	})
-
 	auth := api.Group("/auth")
-	auth.Post("/register", c.UserController.Register, authLimiter)
-	auth.Post("/login", c.UserController.Login, authLimiter)
+	auth.Post("/register", c.UserController.Register)
+	auth.Post("/login", c.UserController.Login)
+	auth.Post("/refresh", c.UserController.RefreshToken)
+
+	// Logout uses the parent apiAuth which has AuthMiddleware applied
+	// It's mapped to /auth/logout
 }
 
 func (c *RouteConfig) setupUserRoutes(api fiber.Router) {
 	users := api.Group("/users")
 
 	users.Get("/current", c.UserController.Current)
-}
-
-func (c *RouteConfig) setupProductRoutes(api fiber.Router) {
-	products := api.Group("/products")
-
-	products.Post("/", c.ProductController.Create)
-	products.Get("/", c.ProductController.GetAll)
-	products.Get("/:id", c.ProductController.GetByID)
-	products.Put("/:id", c.ProductController.Update)
-	products.Delete("/:id", c.ProductController.Delete)
-}
-
-func (c *RouteConfig) setupOrderRoutes(api fiber.Router) {
-	orders := api.Group("/orders")
-
-	orders.Post("/", c.OrderController.Create)
-	orders.Get("/", c.OrderController.GetAll)
-	orders.Get("/:id", c.OrderController.GetByID)
-	orders.Put("/:id", c.OrderController.Update)
-	orders.Delete("/:id", c.OrderController.Delete)
 }

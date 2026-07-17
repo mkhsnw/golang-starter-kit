@@ -27,20 +27,15 @@ func Bootstrap(config *BootstrapConfig) {
 
 	// Repositories
 	userRepo := repository.NewUserRepository(config.Database)
-	productRepo := repository.NewProductRepository(config.Database)
-	orderRepo := repository.NewOrderRepository(config.Database)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(config.Database)
 	// @InjectRepo
 
 	// Usecases
-	userUsecase := usecase.NewUserUsecase(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, userRepo)
-	productUsecase := usecase.NewProductUsecase(config.Logger, productRepo)
-	orderUsecase := usecase.NewOrderUsecase(config.Logger, txManager, orderRepo)
+	userUsecase := usecase.NewUserUsecase(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, config.Config.JWT.RefreshSecret, config.Config.JWT.RefreshExpirationDays, userRepo, refreshTokenRepo)
 	// @InjectUsecase
 
 	// Controllers
 	userController := controller.NewUserController(userUsecase, config.Validator)
-	productController := controller.NewProductController(productUsecase, config.Validator)
-	orderController := controller.NewOrderController(orderUsecase, config.Validator)
 	// @InjectController
 
 	// Middlewares
@@ -48,11 +43,9 @@ func Bootstrap(config *BootstrapConfig) {
 
 	// Setup Routes
 	routes := route.RouteConfig{
-		App:               config.App,
-		UserController:    userController,
-		AuthMiddleware:    authMiddleware,
-		ProductController: productController,
-		OrderController:   orderController,
+		App:            config.App,
+		UserController: userController,
+		AuthMiddleware: authMiddleware,
 		// @InjectRouteConfig
 	}
 	routes.SetupRoutes()

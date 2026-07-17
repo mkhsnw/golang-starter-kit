@@ -11,12 +11,4 @@ type UserRepositoryInterface interface {
 	FindByEmail(ctx context.Context, email string) (*entity.User, error)
 }
 
-type ProductRepositoryInterface interface {
-	RepositoryInterface[entity.Product]
-}
-
-type OrderRepositoryInterface interface {
-	RepositoryInterface[entity.Order]
-}
-
 // @InjectRepositoryInterface

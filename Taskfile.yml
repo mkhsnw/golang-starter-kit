@@ -14,7 +14,7 @@ tasks:
   test:
     desc: Run tests with coverage report
     cmds:
-      - go test ./... -v -coverprofile=coverage.out
+      - gotestsum --format pkgname -- -coverprofile=coverage.out ./...
       - go tool cover -func=coverage.out
 
   lint:
@@ -35,6 +35,7 @@ tasks:
       - go install github.com/vektra/mockery/v2@v2.42.1
       - go install github.com/swaggo/swag/cmd/swag@latest
       - go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+      - go install gotest.tools/gotestsum@latest
 
   mock:
     desc: Generate mocks for Unit Testing
@@ -55,19 +56,25 @@ tasks:
       tx: '{{.tx | default "false"}}'
       force: '{{.force | default "false"}}'
       dry: '{{.dry | default "false"}}'
+      test: '{{.test | default "false"}}'
       migrate: '{{.migrate | default "false"}}'
     cmds:
-      - go run cmd/gen/main.go --name "{{.name}}" --fields "{{.fields}}" {{if eq .tx "true"}}--tx{{end}} {{if eq .force "true"}}--force{{end}} {{if eq .dry "true"}}--dry-run{{end}} {{if eq .migrate "true"}}--migrate{{end}}
+      - go run cmd/gen/main.go --name "{{.name}}" --fields "{{.fields}}" {{if eq .tx "true"}}--tx{{end}} {{if eq .force "true"}}--force{{end}} {{if eq .dry "true"}}--dry-run{{end}} {{if eq .test "true"}}--test{{end}} {{if eq .migrate "true"}}--migrate{{end}}
       - task mock
 
   rm:
-    desc: Remove a generated CRUD module (e.g. task rm name=Product)
+    desc: Remove a generated CRUD module
     vars:
       name: '{{.name | default ""}}'
       dry: '{{.dry | default "false"}}'
     cmds:
       - go run cmd/rm/main.go --name "{{.name}}" {{if eq .dry "true"}}--dry-run{{end}}
-      - task mock
+
+  gokit-new:
+    desc: Scaffold a new project
+    cmds:
+      - go run cmd/new/main.go {{.CLI_ARGS}}
+
 
   migrate-create:
     desc: Buat file migration baru (kosong), contoh - task migrate-create name=add_phone_to_users

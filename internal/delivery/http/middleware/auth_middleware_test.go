@@ -25,7 +25,7 @@ func setupTestApp() *fiber.App {
 
 func generateValidToken() string {
 	claims := jwt.MapClaims{
-		"id":    float64(123),
+		"id":    "123",
 		"email": "test@example.com",
 		"exp":   time.Now().Add(time.Hour).Unix(),
 	}

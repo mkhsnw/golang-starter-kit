@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -11,6 +12,7 @@ func NewConfig() *Config {
 	config.SetConfigName("env")
 	config.SetConfigType("json")
 	config.AddConfigPath("./")
+	config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	config.AutomaticEnv()
 	err := config.ReadInConfig()
 	if err != nil {

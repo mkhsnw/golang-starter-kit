@@ -9,9 +9,18 @@ build-errors.log
 .env.local
 env.json
 
-.vscode/
+# Binaries
+bin/
+*.exe
+gen.exe
+gokit.exe
+
+# Testing
+coverage.out
+*.test
+
+# IDE
 .idea/
+.vscode/
 .DS_Store
 vendor/
-*.test
-*.out

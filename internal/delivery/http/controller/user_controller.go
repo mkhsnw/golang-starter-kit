@@ -72,6 +72,62 @@ func (c *UserController) Login(ctx fiber.Ctx) error {
 	})
 }
 
+// RefreshToken godoc
+// @Summary Refresh access token
+// @Description Get a new access token using a refresh token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param body body map[string]string true "Refresh Token Request (requires refresh_token field)"
+// @Success 200 {object} model.WebResponse[model.TokenResponse]
+// @Failure 401 {object} model.WebResponse[any]
+// @Router /auth/refresh [post]
+func (c *UserController) RefreshToken(ctx fiber.Ctx) error {
+	var req map[string]string
+	if err := ctx.Bind().JSON(&req); err != nil {
+		return fiber.ErrBadRequest
+	}
+
+	refreshToken, ok := req["refresh_token"]
+	if !ok || refreshToken == "" {
+		return fiber.ErrBadRequest
+	}
+
+	response, err := c.UserUsecase.RefreshToken(ctx.Context(), refreshToken)
+	if err != nil {
+		return err
+	}
+
+	return ctx.JSON(model.WebResponse[*model.TokenResponse]{
+		Data: response,
+	})
+}
+
+// Logout godoc
+// @Summary Logout user
+// @Description Revoke all refresh tokens for the current user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} model.WebResponse[any]
+// @Failure 401 {object} model.WebResponse[any]
+// @Router /auth/logout [post]
+func (c *UserController) Logout(ctx fiber.Ctx) error {
+	userId, ok := util.GetUserID(ctx)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+
+	if err := c.UserUsecase.Logout(ctx.Context(), userId); err != nil {
+		return err
+	}
+
+	return ctx.JSON(model.WebResponse[any]{
+		Data: "Logged out successfully",
+	})
+}
+
 // Current godoc
 // @Summary Get current user
 // @Description Get current authenticated user details

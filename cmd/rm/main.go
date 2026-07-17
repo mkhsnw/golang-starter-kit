@@ -94,15 +94,17 @@ func main() {
 	}
 
 	for _, f := range filesToDelete {
+		if _, err := os.Stat(f); os.IsNotExist(err) {
+			continue
+		}
+
 		if dryRun {
-			if _, err := os.Stat(f); err == nil {
-				fmt.Printf("[DRY-RUN] Would delete: %s\n", f)
-			}
+			fmt.Printf("[DRY-RUN] Would delete: %s\n", f)
 			continue
 		}
 		if err := os.Remove(f); err == nil {
 			fmt.Printf("✓ Terhapus: %s\n", f)
-		} else if !os.IsNotExist(err) {
+		} else {
 			fmt.Printf("⚠ Gagal menghapus %s: %v\n", f, err)
 		}
 	}
@@ -206,17 +208,27 @@ func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
 	lines := strings.Split(content, "\n")
 	var newLines []string
 
+	patternRepo := fmt.Sprintf(`\b%sRepo\s*:=\s*repository\.New%sRepository`, camel, pascal)
+	patternUsecase := fmt.Sprintf(`\b%sUsecase\s*:=\s*usecase\.New%sUsecase`, camel, pascal)
+	patternController := fmt.Sprintf(`\b%sController\s*:=\s*controller\.New%sController`, camel, pascal)
+	patternRouteConfig := fmt.Sprintf(`\b%sController\s*:\s*%sController,`, pascal, camel)
+
+	reRepo := regexp.MustCompile(patternRepo)
+	reUsecase := regexp.MustCompile(patternUsecase)
+	reController := regexp.MustCompile(patternController)
+	reRouteConfig := regexp.MustCompile(patternRouteConfig)
+
 	for _, line := range lines {
-		if strings.Contains(line, fmt.Sprintf("%sRepo := repository.New%sRepository", camel, pascal)) {
+		if reRepo.MatchString(line) {
 			continue
 		}
-		if strings.Contains(line, fmt.Sprintf("%sUsecase := usecase.New%sUsecase", camel, pascal)) {
+		if reUsecase.MatchString(line) {
 			continue
 		}
-		if strings.Contains(line, fmt.Sprintf("%sController := controller.New%sController", camel, pascal)) {
+		if reController.MatchString(line) {
 			continue
 		}
-		if strings.Contains(line, fmt.Sprintf("%sController: %sController,", pascal, camel)) {
+		if reRouteConfig.MatchString(line) {
 			continue
 		}
 		newLines = append(newLines, line)
@@ -244,8 +256,11 @@ func removeFromRouteGo(cwd, pascal, plural string, dryRun bool) {
 	lines := strings.Split(content, "\n")
 	var newLines []string
 
+	patternController := fmt.Sprintf(`\b%sController\s+\*controller\.%sController\b`, pascal, pascal)
+	reController := regexp.MustCompile(patternController)
+
 	for _, line := range lines {
-		if strings.Contains(line, fmt.Sprintf("%sController *controller.%sController", pascal, pascal)) {
+		if reController.MatchString(line) {
 			continue
 		}
 		if strings.Contains(line, fmt.Sprintf("c.setup%sRoutes(", pascal)) {

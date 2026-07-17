@@ -74,6 +74,54 @@ func (_m *UserUsecaseInterface) Login(ctx context.Context, req *model.LoginReque
 	return r0, r1
 }
 
+// Logout provides a mock function with given fields: ctx, userID
+func (_m *UserUsecaseInterface) Logout(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Logout")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// RefreshToken provides a mock function with given fields: ctx, rawToken
+func (_m *UserUsecaseInterface) RefreshToken(ctx context.Context, rawToken string) (*model.TokenResponse, error) {
+	ret := _m.Called(ctx, rawToken)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RefreshToken")
+	}
+
+	var r0 *model.TokenResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.TokenResponse, error)); ok {
+		return rf(ctx, rawToken)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.TokenResponse); ok {
+		r0 = rf(ctx, rawToken)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.TokenResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, rawToken)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Register provides a mock function with given fields: ctx, req
 func (_m *UserUsecaseInterface) Register(ctx context.Context, req *model.RegisterRequest) (*model.UserResponse, error) {
 	ret := _m.Called(ctx, req)

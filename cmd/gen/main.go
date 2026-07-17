@@ -42,6 +42,11 @@ OPTIONAL FLAGS:
   --migrate             Automatically run database migrations after generation
                         without prompting.
 
+  --test                Generate test files (usecase_test.go, controller_test.go).
+                        Automatically enabled when --tx is used, since
+                        transactional logic is exactly what benefits most
+                        from tests.
+
   --help, -h            Show this help message.
 
 SUPPORTED FIELD TYPES:
@@ -60,7 +65,7 @@ EXAMPLES:
 
 func runModuleGenerator(args []string) {
 	var name, fieldsStr string
-	var force, dryRun, isTx, runMigrate bool
+	var force, dryRun, isTx, runMigrate, genTest bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -73,6 +78,8 @@ func runModuleGenerator(args []string) {
 			dryRun = true
 		} else if arg == "--tx" {
 			isTx = true
+		} else if arg == "--test" {
+			genTest = true
 		} else if arg == "--migrate" {
 			runMigrate = true
 		} else if arg == "--name" && i+1 < len(args) {
@@ -102,7 +109,12 @@ func runModuleGenerator(args []string) {
 	}
 
 	mod := buildModuleNames(name, fieldsStr, isTx)
-	generateModule(mod, force, dryRun, runMigrate)
+
+	if isTx {
+		genTest = true
+	}
+
+	generateModule(mod, force, dryRun, runMigrate, genTest)
 }
 
 type Field struct {
@@ -222,7 +234,7 @@ type fileToGenerate struct {
 	OutputPath   string // path tujuan, misal "internal/entity/product_entity.go"
 }
 
-func generateModule(mod ModuleNames, force, dryRun, runMigrate bool) {
+func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	// Validate field types early — fail fast before touching the filesystem
 	validateFields(mod.Fields)
 
@@ -235,10 +247,15 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate bool) {
 		{"repository.go.tmpl", fmt.Sprintf("internal/repository/%s_repository.go", mod.Snake)},
 		{"usecase.go.tmpl", fmt.Sprintf("internal/usecase/%s_usecase.go", mod.Snake)},
 		{"controller.go.tmpl", fmt.Sprintf("internal/delivery/http/controller/%s_controller.go", mod.Snake)},
-		{"usecase_test.go.tmpl", fmt.Sprintf("internal/usecase/%s_usecase_test.go", mod.Snake)},
-		{"controller_test.go.tmpl", fmt.Sprintf("internal/delivery/http/controller/%s_controller_test.go", mod.Snake)},
 		{"migration_up.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, baseName)},
 		{"migration_down.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, baseName)},
+	}
+
+	if genTest {
+		files = append(files,
+			fileToGenerate{"usecase_test.go.tmpl", fmt.Sprintf("internal/usecase/%s_usecase_test.go", mod.Snake)},
+			fileToGenerate{"controller_test.go.tmpl", fmt.Sprintf("internal/delivery/http/controller/%s_controller_test.go", mod.Snake)},
+		)
 	}
 
 	for _, f := range files {
