@@ -18,10 +18,18 @@ type {{.Pascal}}Usecase struct {
 {{- if .IsTx}}
 	TxManager          repository.TransactionManager
 {{- end}}
+{{- if .WithInterface}}
 	{{.Pascal}}Repository repository.{{.Pascal}}RepositoryInterface
+{{- else}}
+	{{.Pascal}}Repository *repository.{{.Pascal}}Repository
+{{- end}}
 }
 
+{{if .WithInterface -}}
 func New{{.Pascal}}Usecase(log *logrus.Logger, {{if .IsTx}}txManager repository.TransactionManager, {{end}}repo repository.{{.Pascal}}RepositoryInterface) *{{.Pascal}}Usecase {
+{{- else -}}
+func New{{.Pascal}}Usecase(log *logrus.Logger, {{if .IsTx}}txManager repository.TransactionManager, {{end}}repo *repository.{{.Pascal}}Repository) *{{.Pascal}}Usecase {
+{{- end}}
 	return &{{.Pascal}}Usecase{
 		Log: log,
 {{- if .IsTx}}

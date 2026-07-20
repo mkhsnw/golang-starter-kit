@@ -48,6 +48,9 @@ OPTIONAL FLAGS:
                         transactional logic is exactly what benefits most
                         from tests.
 
+  --with-interface      Generate Repository and Usecase Interfaces and inject them.
+                        By default, interface generation is skipped.
+
   --help, -h            Show this help message.
 
 SUPPORTED FIELD TYPES:
@@ -66,7 +69,7 @@ EXAMPLES:
 
 func runModuleGenerator(args []string) {
 	var name, fieldsStr string
-	var force, dryRun, isTx, runMigrate, genTest bool
+	var force, dryRun, isTx, runMigrate, genTest, withInterface bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -79,6 +82,8 @@ func runModuleGenerator(args []string) {
 			dryRun = true
 		} else if arg == "--tx" {
 			isTx = true
+		} else if arg == "--with-interface" {
+			withInterface = true
 		} else if arg == "--test" {
 			genTest = true
 		} else if arg == "--migrate" {
@@ -109,7 +114,7 @@ func runModuleGenerator(args []string) {
 		os.Exit(1)
 	}
 
-	mod := buildModuleNames(name, fieldsStr, isTx)
+	mod := buildModuleNames(name, fieldsStr, isTx, withInterface)
 
 	if isTx {
 		genTest = true
@@ -131,19 +136,20 @@ type Field struct {
 }
 
 type ModuleNames struct {
-	Pascal     string // "Product"
-	Snake      string // "product"
-	Camel      string // "product"
-	Plural     string // "products"
-	Fields     []Field
-	IsTx       bool   // true if --tx flag is passed
-	ModuleName string // e.g., "github.com/username/project"
+	Pascal        string // "Product"
+	Snake         string // "product"
+	Camel         string // "product"
+	Plural        string // "products"
+	Fields        []Field
+	IsTx          bool   // true if --tx flag is passed
+	WithInterface bool   // true if --with-interface flag is passed
+	ModuleName    string // e.g., "github.com/username/project"
 }
 
 func getModuleName() string {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
-		return "github.com/mkhsnw/golang-starter-kit"
+		return "github.com/mkhsnw/smart-inventory"
 	}
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -152,10 +158,10 @@ func getModuleName() string {
 			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
-	return "github.com/mkhsnw/golang-starter-kit"
+	return "github.com/mkhsnw/smart-inventory"
 }
 
-func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
+func buildModuleNames(input, fieldsStr string, isTx bool, withInterface bool) ModuleNames {
 	pascal := strings.ToUpper(input[:1]) + input[1:]
 	snake := toSnakeCase(input)
 	camel := strings.ToLower(input[:1]) + input[1:]
@@ -191,7 +197,7 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 				if isFK {
 					refTable = pluralize(strings.TrimSuffix(toSnakeCase(name), "_id"))
 				}
-				
+
 				var sqlType string
 				if customSQLType != "" {
 					sqlType = customSQLType
@@ -224,13 +230,14 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 	}
 
 	return ModuleNames{
-		Pascal:     pascal,
-		Snake:      snake,
-		Camel:      camel,
-		Plural:     pluralize(snake),
-		Fields:     fields,
-		IsTx:       isTx,
-		ModuleName: getModuleName(),
+		Pascal:        pascal,
+		Snake:         snake,
+		Camel:         camel,
+		Plural:        pluralize(snake),
+		Fields:        fields,
+		IsTx:          isTx,
+		WithInterface: withInterface,
+		ModuleName:    getModuleName(),
 	}
 }
 
@@ -280,11 +287,28 @@ func toSnakeCase(s string) string {
 	return string(result)
 }
 
+var commonInitialisms = map[string]string{
+	"Id":   "ID",
+	"Url":  "URL",
+	"Api":  "API",
+	"Json": "JSON",
+	"Html": "HTML",
+	"Xml":  "XML",
+	"Http": "HTTP",
+	"Uuid": "UUID",
+	"Uri":  "URI",
+	"Ip":   "IP",
+}
+
 func toPascalCase(s string) string {
 	parts := strings.Split(s, "_")
 	for i := range parts {
 		if len(parts[i]) > 0 {
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+			word := strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
+			if upper, ok := commonInitialisms[word]; ok {
+				word = upper
+			}
+			parts[i] = word
 		}
 	}
 	return strings.Join(parts, "")
@@ -304,6 +328,16 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 
 	timestamp := time.Now().Format("20060102150405")
 	baseName := fmt.Sprintf("create_%s_table", mod.Plural)
+
+	// Check if migration already exists to reuse its timestamp
+	matches, _ := filepath.Glob(fmt.Sprintf("db/migration/*_%s.up.sql", baseName))
+	if len(matches) > 0 {
+		filename := filepath.Base(matches[0])
+		parts := strings.SplitN(filename, "_", 2)
+		if len(parts) == 2 {
+			timestamp = parts[0]
+		}
+	}
 
 	files := []fileToGenerate{
 		{"entity.go.tmpl", fmt.Sprintf("internal/entity/%s_entity.go", mod.Snake)},
@@ -336,8 +370,10 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 
 	injectToAppGo(mod, dryRun)
 	injectToRouteGo(mod, dryRun)
-	injectToRepositoryInterfaces(mod, dryRun)
-	injectToUsecaseInterfaces(mod, dryRun)
+	if mod.WithInterface {
+		injectToRepositoryInterfaces(mod, dryRun)
+		injectToUsecaseInterfaces(mod, dryRun)
+	}
 
 	if dryRun {
 		fmt.Println("\n[DRY-RUN] Module generation simulated successfully!")

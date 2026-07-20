@@ -12,11 +12,19 @@ import (
 )
 
 type {{.Pascal}}Controller struct {
+{{- if .WithInterface}}
 	{{.Pascal}}Usecase usecase.{{.Pascal}}UsecaseInterface
+{{- else}}
+	{{.Pascal}}Usecase *usecase.{{.Pascal}}Usecase
+{{- end}}
 	Validator          *validator.Validate
 }
 
+{{if .WithInterface -}}
 func New{{.Pascal}}Controller(uc usecase.{{.Pascal}}UsecaseInterface, validate *validator.Validate) *{{.Pascal}}Controller {
+{{- else -}}
+func New{{.Pascal}}Controller(uc *usecase.{{.Pascal}}Usecase, validate *validator.Validate) *{{.Pascal}}Controller {
+{{- end}}
 	return &{{.Pascal}}Controller{ {{.Pascal}}Usecase: uc, Validator: validate }
 }
 
