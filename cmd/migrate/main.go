@@ -15,7 +15,7 @@ import (
 func main() {
 	appConfig := config.NewConfig()
 
-	dsn := fmt.Sprintf("mysql://%s:%s@tcp(%s:%d)/%s",
+	dsn := fmt.Sprintf("mysql://%s:%s@tcp(%s:%d)/%s?multiStatements=true",
 		appConfig.Database.Username,
 		appConfig.Database.Password,
 		appConfig.Database.Host,
@@ -60,6 +60,18 @@ func main() {
 			log.Fatalf("Failed to get migration version: %v", err)
 		}
 		log.Printf("Current migration version: %v, dirty: %v\n", version, dirty)
+	case "force":
+		if len(os.Args) < 3 {
+			log.Fatal("Usage: go run main.go force [version]")
+		}
+
+		var v int
+		fmt.Sscanf(os.Args[2], "%d", &v)
+
+		if err := m.Force(v); err != nil {
+			log.Fatalf("Failed to force migration: %v", err)
+		}
+		log.Printf("Force migration to version %d success\n", v)
 	default:
 		log.Fatalf("Unknown command: %s", cmd)
 	}

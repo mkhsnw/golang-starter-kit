@@ -15,7 +15,7 @@ import (
 func printHelp() {
 	fmt.Print(`
 ╔══════════════════════════════════════════════════════════════╗
-║              Generator CLI                                   ║
+║              				Generator CLI                      ║
 ╚══════════════════════════════════════════════════════════════╝
 
 USAGE:
@@ -27,8 +27,9 @@ REQUIRED FLAGS:
 
 OPTIONAL FLAGS:
   --fields <list>       Comma-separated field definitions.
-                        Format: name:type or name:type? (nullable)
-                        Example: --fields "title:string,price:float64,note:text?"
+                        Format: name:go_type[:sql_type] or name:go_type? (nullable)
+                        Example 1: --fields "note:text?" (becomes NULL)
+                        Example 2: --fields "status:string:ENUM('IN','OUT')?" (becomes NULL)
 
   --tx                  Generate the Usecase module to run database writes (Create,
                         Update, Delete) inside a Transaction. Recommended for
@@ -161,16 +162,24 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 
 	var fields []Field
 	if fieldsStr != "" {
-		parts := strings.Split(fieldsStr, ",")
+		parts := splitFields(fieldsStr)
 		for _, part := range parts {
-			kv := strings.Split(part, ":")
-			if len(kv) == 2 {
+			kv := strings.SplitN(part, ":", 3)
+			if len(kv) >= 2 {
 				name := strings.TrimSpace(kv[0])
 				typ := strings.TrimSpace(kv[1])
+				customSQLType := ""
+				if len(kv) == 3 {
+					customSQLType = strings.TrimSpace(kv[2])
+				}
 				nullable := false
 				if strings.HasSuffix(typ, "?") {
 					nullable = true
 					typ = strings.TrimSuffix(typ, "?")
+				}
+				if strings.HasSuffix(customSQLType, "?") {
+					nullable = true
+					customSQLType = strings.TrimSuffix(customSQLType, "?")
 				}
 				goType := typ
 				// "text" is a SQL hint — Go type stays string
@@ -182,15 +191,28 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 				if isFK {
 					refTable = pluralize(strings.TrimSuffix(toSnakeCase(name), "_id"))
 				}
-				sqlType := goTypeToSQLType(typ)
-				if isFK {
-					sqlType = "VARCHAR(36)"
+				
+				var sqlType string
+				if customSQLType != "" {
+					sqlType = customSQLType
+				} else {
+					sqlType = goTypeToSQLType(typ)
+					if isFK {
+						sqlType = "CHAR(36)"
+					}
 				}
+
+				pascalName := toPascalCase(name)
+				// Prevent GORM TableName() conflict
+				if pascalName == "TableName" {
+					pascalName = "TargetTable"
+				}
+
 				fields = append(fields, Field{
 					Name:            name,
 					Type:            goType,
 					RawType:         typ,
-					PascalName:      toPascalCase(name),
+					PascalName:      pascalName,
 					SnakeName:       toSnakeCase(name),
 					Nullable:        nullable,
 					SQLType:         sqlType,
@@ -210,6 +232,31 @@ func buildModuleNames(input, fieldsStr string, isTx bool) ModuleNames {
 		IsTx:       isTx,
 		ModuleName: getModuleName(),
 	}
+}
+
+func splitFields(s string) []string {
+	var parts []string
+	var current strings.Builder
+	inParens := 0
+
+	for _, c := range s {
+		if c == '(' {
+			inParens++
+		} else if c == ')' {
+			inParens--
+		}
+
+		if c == ',' && inParens == 0 {
+			parts = append(parts, current.String())
+			current.Reset()
+		} else {
+			current.WriteRune(c)
+		}
+	}
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	return parts
 }
 
 func pluralize(s string) string {
@@ -408,8 +455,6 @@ func validateFields(fields []Field) {
 		}
 	}
 }
-
-
 
 func injectToAppGo(mod ModuleNames, dryRun bool) {
 	appPath := "internal/config/app.go"

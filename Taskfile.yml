@@ -77,7 +77,6 @@ tasks:
     cmds:
       - go run cmd/new/main.go "{{.name}}"
 
-
   migrate-create:
     desc: Buat file migration baru (kosong), contoh - task migrate-create name=add_phone_to_users
     vars:
@@ -99,6 +98,13 @@ tasks:
     desc: Tampilkan versi migration saat ini
     cmds:
       - go run cmd/migrate/main.go version
+
+  migrate-force:
+    desc: Paksa versi migration ke versi tertentu (berguna jika dirty)
+    vars:
+      version: '{{.version | default ""}}'
+    cmds:
+      - go run cmd/migrate/main.go force "{{.version}}"
 
   help:
     desc: Tampilkan dokumentasi lengkap untuk semua perintah task runner
@@ -131,4 +137,3 @@ tasks:
         echo "  task migrate-down              Rollback 1 file migration terakhir"
         echo "  task migrate-version           Tampilkan versi database saat ini"
         echo "=========================================================================="
-
