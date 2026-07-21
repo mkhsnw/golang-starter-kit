@@ -3,11 +3,12 @@ package config
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
-	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/controller"
-	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/middleware"
-	"github.com/mkhsnw/golang-starter-kit/internal/delivery/http/route"
-	"github.com/mkhsnw/golang-starter-kit/internal/repository"
-	"github.com/mkhsnw/golang-starter-kit/internal/usecase"
+
+	"github.com/mkhsnw/golang-starter-kit/internal/middleware"
+
+	"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"
+	"github.com/mkhsnw/golang-starter-kit/internal/module/user"
+
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -22,31 +23,27 @@ type BootstrapConfig struct {
 
 func Bootstrap(config *BootstrapConfig) {
 	// Transaction Manager
-	txManager := repository.NewGormTransactionManager(config.Database)
+	txManager := database.NewGormTransactionManager(config.Database)
 	_ = txManager
 
 	// Repositories
-	userRepo := repository.NewUserRepository(config.Database)
-	refreshTokenRepo := repository.NewRefreshTokenRepository(config.Database)
+	userRepo := user.NewUserRepository(config.Database)
+	refreshTokenRepo := user.NewRefreshTokenRepository(config.Database)
 	// @InjectRepo
 
 	// Usecases
-	userUsecase := usecase.NewUserUsecase(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, config.Config.JWT.RefreshSecret, config.Config.JWT.RefreshExpirationDays, userRepo, refreshTokenRepo)
+	userUsecase := user.NewUserService(config.Logger, config.Config.JWT.Secret, config.Config.JWT.ExpirationHours, config.Config.JWT.RefreshSecret, config.Config.JWT.RefreshExpirationDays, userRepo, refreshTokenRepo)
 	// @InjectUsecase
 
 	// Controllers
-	userController := controller.NewUserController(userUsecase, config.Validator)
+	userController := user.NewUserController(userUsecase, config.Validator)
 	// @InjectController
 
 	// Middlewares
 	authMiddleware := middleware.NewAuthMiddleware(config.Config.JWT.Secret)
 
 	// Setup Routes
-	routes := route.RouteConfig{
-		App:            config.App,
-		UserController: userController,
-		AuthMiddleware: authMiddleware,
-		// @InjectRouteConfig
-	}
-	routes.SetupRoutes()
+	api := config.App.Group("/api/v1")
+	user.SetupRoutes(api, userController, authMiddleware)
+	// @InjectRouteConfig
 }

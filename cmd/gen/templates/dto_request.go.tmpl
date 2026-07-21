@@ -1,0 +1,13 @@
+package dto
+
+type Create{{.Pascal}}Request struct {
+{{- range .Fields }}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"{{ if .Validate }}{{.Validate}}{{ else }}required{{ end }}"`
+{{- end }}
+}
+
+type Update{{.Pascal}}Request struct {
+{{- range .Fields }}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"{{ if .Validate }}{{.Validate}}{{ else }}required{{ end }}"`
+{{- end }}
+}

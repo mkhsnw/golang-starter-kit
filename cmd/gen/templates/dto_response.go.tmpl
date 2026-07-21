@@ -1,0 +1,12 @@
+package dto
+
+import "time"
+
+type {{.Pascal}}Response struct {
+	ID        string    `json:"id"`
+{{- range .Fields }}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"`
+{{- end }}
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

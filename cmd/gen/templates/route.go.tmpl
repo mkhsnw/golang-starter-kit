@@ -1,0 +1,16 @@
+package {{.Snake}}
+
+import (
+	"github.com/gofiber/fiber/v3"
+)
+
+// SetupRoutes configures all routes for the {{.Pascal}} module
+func SetupRoutes(api fiber.Router, {{.Camel}}Controller *{{.Pascal}}Controller, authMiddleware fiber.Handler) {
+	{{.Plural}} := api.Group("/{{.Plural}}", authMiddleware)
+	
+	{{.Plural}}.Post("/", {{.Camel}}Controller.Create)
+	{{.Plural}}.Get("/", {{.Camel}}Controller.GetAll)
+	{{.Plural}}.Get("/:id", {{.Camel}}Controller.GetByID)
+	{{.Plural}}.Put("/:id", {{.Camel}}Controller.Update)
+	{{.Plural}}.Delete("/:id", {{.Camel}}Controller.Delete)
+}

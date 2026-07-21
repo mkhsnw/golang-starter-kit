@@ -25,7 +25,8 @@ func main() {
 	log := config.NewLogrus(appConfig)
 	db := config.NewDatabase(appConfig, log)
 	validator := config.NewValidator(appConfig)
-	app := config.NewFiber(appConfig, db, log)
+	redisStorage := config.NewRedisStorage(appConfig)
+	app := config.NewHTTP(appConfig, db, log, redisStorage)
 
 	config.Bootstrap(&config.BootstrapConfig{
 		Config:    appConfig,

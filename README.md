@@ -1,287 +1,156 @@
-# 🚀 Golang Starter Kit (Fiber + GORM + Clean Architecture)
+# 🚀 Golang Starter Kit: An Opinionated Framework
 
-Sebuah **kit murni**, bukan aplikasi contoh — repo ini berisi mesin (generator, middleware, config, auth) yang siap dipakai untuk bootstrap project backend baru dalam hitungan detik, bukan template yang harus kamu fork lalu bersihkan manual.
-
-Dokumen ini menjelaskan **apa isinya, kenapa disusun begini, dan cara pakainya dari nol sampai jalan** — bukan cuma daftar perintah.
-
----
+Repositori ini bukan lagi sekadar "starter kit" atau kumpulan boilerplate. Ini adalah **opinionated framework** yang dirancang untuk mencegah developer melakukan kesalahan arsitektural. Fokus utamanya adalah **konsistensi**, **kemudahan maintain**, dan **developer experience** yang superior.
 
 ## 📖 Daftar Isi
 
-1. [Apa yang Kamu Dapat](#-apa-yang-kamu-dapat)
-2. [Arsitektur & Alur Request](#️-arsitektur--alur-request)
-3. [Bootstrap Project Baru](#-bootstrap-project-baru)
-4. [Persiapan Awal (Kit Ini Sendiri)](#️-persiapan-awal-kit-ini-sendiri)
-5. [Menjalankan Server](#-menjalankan-server)
-6. [Migrasi Database](#-migrasi-database)
-7. [Membuat Fitur Baru (Generator)](#️-membuat-fitur-baru-generator)
-8. [Kapan Perlu Row-Locking?](#-kapan-perlu-row-locking)
-9. [Alur Autentikasi](#-alur-autentikasi)
-10. [Format Response API](#-format-response-api)
-11. [Testing & Mocks](#-testing--mocks)
-12. [Swagger Docs](#-swagger-docs)
-13. [Semua Perintah Task](#-semua-perintah-task)
-14. [Catatan & Rencana Pengembangan](#-catatan--rencana-pengembangan)
+1. [Filosofi Arsitektur (The "Why")](#-filosofi-arsitektur-the-why)
+2. [Arsitektur Beku (Frozen Architecture)](#-arsitektur-beku-frozen-architecture)
+3. [Generator: Murid dari Foundation](#-generator-murid-dari-foundation)
+4. [Apa yang Kamu Dapat](#-apa-yang-kamu-dapat)
+5. [Memulai Project Baru](#-memulai-project-baru)
+6. [Struktur Konfigurasi](#️-struktur-konfigurasi)
+7. [Format Response API](#-format-response-api)
+8. [Testing & Mocks](#-testing--mocks)
+9. [Semua Perintah Task](#-semua-perintah-task)
+
+---
+
+## 🧠 Filosofi Arsitektur (The "Why")
+
+Sebelum menggunakan framework ini, penting untuk memahami **mengapa** keputusan arsitektur tertentu diambil:
+
+### 1. Kenapa ada `foundation`?
+Foundation adalah tulang punggung framework. Alih-alih membuat logic paginasi, format error, atau struktur response secara berulang di setiap fitur, semuanya ditarik ke tengah. `foundation` memastikan bahwa **seluruh API berbicara dengan bahasa yang sama**. Tidak ada lagi module yang me-return error dengan format berbeda.
+
+### 2. Kenapa ada `module`?
+Aplikasi sering kali menjadi monolith yang sulit dipecah karena *logic* saling silang. Dengan mengelompokkan kode berdasarkan `module` (domain driven), setiap fitur (seperti User, Order, Product) terisolasi dengan rapi. Jika suatu saat fitur harus dipindah ke microservice, pemisahannya jauh lebih mudah.
+
+### 3. Kenapa DTO dipisah?
+Dulu, kita sering mencampur Entity (struktur database) dengan DTO (struktur API). Akibatnya, password atau field sensitif bisa bocor ke response secara tak sengaja. Dengan memisahkan DTO, **Entity hanya urusan database, dan DTO hanya urusan transport**. Tidak ada *Single Source of Truth* yang rancu.
+
+### 4. Kenapa Controller dibuat setipis mungkin (Thin Controller)?
+Controller hanya boleh tahu soal framework HTTP (Fiber). Tugasnya hanya parsing request, memanggil Usecase, dan me-return JSON lewat `foundation/response`. Jika suatu saat kita pindah dari Fiber ke Gin atau gRPC, business logic (Usecase) tidak perlu disentuh sama sekali.
+
+### 5. Kenapa Generator sangat beropini (Opinionated Generator)?
+Generator yang terlalu fleksibel akan menghasilkan kode yang tidak konsisten. Generator di sini dipaksa patuh pada aturan Foundation. Ia memaksa developer membuat kode dengan standar kualitas yang sama, lengkap dengan DTO yang benar, mapper yang benar, dan error handling yang immutable.
+
+---
+
+## 🧊 Arsitektur Beku (Frozen Architecture)
+
+**Arsitektur pada folder structure ini telah dibekukan.**
+
+Tidak akan ada lagi perdebatan apakah DTO ditaruh di dalam atau di luar module, atau bagaimana file konfigurasi disusun. Semuanya sudah pada bentuk finalnya yang paling matang.
+
+Perubahan ke depan hanya akan fokus pada:
+1. **Penyempurnaan Generator**: Membuat generator semakin cerdas membaca *manifest*.
+2. **Implementasi Foundation**: Menambahkan fitur-fitur generic yang bisa dipakai semua module.
+3. **Bug Fixes**.
+
+Dengan arsitektur yang beku, *Generator* tidak akan pernah tertinggal.
+
+---
+
+## 🤖 Generator: Murid dari Foundation
+
+Generator di framework ini bukanlah sekadar alat copy-paste. Ia adalah "murid" yang patuh pada arsitektur. Generator digerakkan sepenuhnya oleh **Manifest** (file YAML), sehingga satu definisi manifest bisa menghasilkan struktur kode yang 100% konsisten dengan filosofi Foundation.
+
+### Menggunakan Manifest
+
+Buat file manifest YAML di folder `manifests/` (misalnya `manifests/product.yaml`):
+```yaml
+name: Product
+transactions: true
+tests: false
+fields:
+  - name: sku
+    type: string
+    required: true
+  - name: price
+    type: float64
+  - name: status
+    type: string
+    sql_type: "ENUM('ACTIVE', 'INACTIVE')"
+    required: true
+```
+
+Lalu jalankan generator:
+```powershell
+task gen name=product
+```
+
+### Tipe Data & SQL Mapping
+
+| Tipe di Manifest (`type`) | Tipe Data Go | Tipe Data SQL (GORM/Migration) | Keterangan |
+| :--- | :--- | :--- | :--- |
+| `string` / `text` | `string` | `VARCHAR(255)` / `TEXT` | Teks pendek atau panjang. |
+| `bool` | `bool` | `TINYINT(1)` | Boolean (true/false). |
+| `int`, `int64`, dsb | `int` / `int64` | `INT`, `BIGINT`, dsb | Angka bulat. |
+| `float32`, `float64` | `float32`/`64` | `FLOAT` / `DOUBLE PRECISION`| Angka desimal. |
+| `time.Time` | `time.Time` | `TIMESTAMP` | Waktu spesifik. |
+
+**Aturan Khusus (Smart Generator):**
+1. **Custom SQL Type (Enum)**: Gunakan properti `sql_type` (seperti contoh di atas) untuk menimpa tipe SQL bawaan (misal untuk ENUM). Tipe di Go akan tetap menggunakan nilai `type`.
+2. **Foreign Key Otomatis**: Jika nama kolom berakhiran `_id` (misal `category_id`), SQL type-nya otomatis di-*override* menjadi `CHAR(36)` (UUID).
+3. **Nullable**: Jika `required: false` (atau tidak ditulis), kolom tidak akan memiliki constraint `NOT NULL`.
+4. **Field Bawaan**: Jangan tulis `id`, `created_at`, dan `updated_at` di manifest. Ketiga kolom ini wajib dan selalu otomatis di-generate oleh template (menggunakan UUID v7).
 
 ---
 
 ## 📦 Apa yang Kamu Dapat
 
-Begitu kamu bootstrap project baru dari kit ini, kamu langsung punya:
-
-- ✅ **Autentikasi lengkap** — register, login, JWT access token + refresh token (bisa di-revoke), logout
-- ✅ **Generator CRUD** — 1 command bikin entity, model, repository, usecase, controller, migration, sekaligus auto-registrasi ke DI & route
-- ✅ **Row-locking siap pakai** — buat kasus race-condition sensitif (stok, saldo, kuota)
-- ✅ **Rate limiting via Redis** — akurat walau nanti di-scale ke banyak instance
-- ✅ **Error handling & response format konsisten** — terstandar di semua endpoint tanpa perlu dipikir ulang tiap fitur
-- ✅ **Swagger docs otomatis, testing dengan mock, hot-reload development**
-
-Yang **tidak** ikut terbawa ke project baru: modul contoh apa pun. Kit ini sengaja tidak punya "aplikasi contoh" (seperti `Product`/`Order`) di dalamnya — supaya project barumu benar-benar bersih dari hari pertama, tidak perlu menghapus kode yang tidak relevan dengan bisnismu.
+- ✅ **Single Source of Truth**: Tidak ada lagi package `model` yang ambigu. Transport diurus DTO, logic oleh Entity, format oleh Foundation.
+- ✅ **Config Granular**: `http.go`, `database.go`, `logger.go`, `storage.go`. Generator-friendly dan menghindari konflik *merge*.
+- ✅ **Mapper Sentralistik**: Semua error validasi atau meta pagination dipetakan seragam oleh `foundation/mapper`.
+- ✅ **Semantic Response**: Response dibentuk dengan makna yang jelas via `response.Created()`, `response.NoContent()`, dsb.
+- ✅ **Immutable Exceptions**: Error diinisialisasi sekali (`var ErrUserNotFound = exception.New(...)`) dan kompatibel penuh dengan `errors.Is`.
+- ✅ **Row-Locking & Transaksi**: Siap pakai untuk kasus *race-condition*.
 
 ---
 
-## 🏛️ Arsitektur & Alur Request
-
-Setiap fitur mengikuti **Clean Architecture** — dipecah ke beberapa layer yang masing-masing punya 1 tanggung jawab. Ini supaya business logic-mu tidak menempel ke framework HTTP atau ke cara kerja database tertentu.
-
-```
-HTTP Request
-    │
-    ▼
-┌─────────────┐   Terima request, teruskan ke Controller
-│   Route     │
-└─────┬───────┘
-      ▼
-┌─────────────┐   Parsing & validasi input, panggil Usecase,
-│  Controller │   bungkus hasil jadi response JSON standar
-└─────┬───────┘
-      ▼
-┌─────────────┐   Business logic hidup di sini — aturan bisnis,
-│   Usecase   │   transaksi, locking, orkestrasi antar repository
-└─────┬───────┘
-      ▼
-┌─────────────┐   Akses data mentah (Create/FindByID/Update/Delete)
-│ Repository  │
-└─────┬───────┘
-      ▼
-┌─────────────┐
-│   Entity    │   Representasi tabel database (struct GORM)
-└─────────────┘
-      │
-      ▼
-   Database
-```
-
-### Kenapa 1 fitur jadi banyak file?
-
-| File | Isinya | Kenapa dipisah |
-|---|---|---|
-| `entity/xxx_entity.go` | Struct yang merepresentasikan tabel database | Struktur database terpisah dari struktur API |
-| `model/xxx_model.go` | DTO request & response | Field sensitif (misal `Password`) tidak pernah bocor ke JSON response tanpa sengaja |
-| `repository/xxx_repository.go` | Query ke database (embed generic `Repository[T]`) | Usecase tidak perlu tahu detail SQL/GORM |
-| `usecase/xxx_usecase.go` | Business logic — validasi, aturan bisnis | "Otak" fitur, sengaja dipisah dari HTTP supaya gampang di-unit-test tanpa server jalan |
-| `delivery/http/controller/xxx_controller.go` | Terima HTTP request, panggil usecase | Satu-satunya layer yang "tahu" soal Fiber |
-
----
-
-## 🌱 Bootstrap Project Baru
-
-Ini titik masuk utama kalau kamu mau mulai project baru dari kit ini:
+## 🌱 Memulai Project Baru
 
 ```powershell
 task gokit-new github.com/usernamekamu/nama-project-baru
 ```
 
-Yang terjadi otomatis:
-1. Seluruh core (config, middleware, auth, generator) di-copy ke folder sejajar (`../nama-project-baru`)
-2. `.git`, `.github`, `env.json`, `bin/`, `docs/` **tidak ikut ter-copy** — project baru mulai dengan git history bersih dan tanpa kebawa secret kit ini
-3. Nama module Go otomatis di-rename di semua file (`go.mod`, import path, dst)
-4. `go mod tidy` otomatis dijalankan
+Yang terjadi:
+1. Core framework disalin ke folder baru.
+2. Riwayat `.git`, secret di `env.json` tidak ikut terbawa.
+3. Nama module Go diotomatisasi ulang.
 
-Setelah itu, masuk ke folder project baru dan lanjut ke [Persiapan Awal](#️-persiapan-awal-kit-ini-sendiri) di bawah — semua langkah selanjutnya sama persis.
-
----
-
-## 🛠️ Persiapan Awal (Kit Ini Sendiri)
-
-### Instalasi
-
-1. Pastikan Go (minimal versi 1.21) sudah terpasang.
-2. Install **Task** — pengganti `make` yang cross-platform:
-   ```powershell
-   go install github.com/go-task/task/v3/cmd/task@latest
-   ```
-
-### Konfigurasi Environment
-
-```powershell
-cp env.example.json env.json
-```
-
-Isi `env.json` sesuai environment kamu:
-
-```json
-{
-  "app": { "name": "...", "environment": "dev", "port": 3000, "url": "http://localhost:3000" },
-  "database": {
-    "host": "localhost", "port": 3306, "username": "root", "password": "", "name": "starterkit",
-    "pool": { "maxIdle": 10, "maxOpen": 100, "maxLifetime": "1h" }
-  },
-  "jwt": {
-    "secret": "ganti-dengan-secret-kuat",
-    "expiration_hours": 1,
-    "refresh_secret": "ganti-dengan-secret-lain-yang-berbeda",
-    "refresh_expiration_days": 7
-  },
-  "redis": { "host": "127.0.0.1", "port": 6379, "password": "", "database": 0 }
-}
-```
-
-> ⚠️ `env.json` sudah masuk `.gitignore` — jangan pernah commit versi yang isinya kredensial asli. `env.example.json` yang jadi acuan publik.
-
-**Redis wajib jalan** sebelum server di-start — dipakai untuk rate limiting yang konsisten walau nanti aplikasi di-scale ke banyak instance.
-
-### Install Tooling Developer
-
-Sekali di awal, install semua tool pendukung (linter, hot-reload, mock generator, swagger generator, migration CLI):
+Setelah itu, copy `env.example.json` menjadi `env.json`, jalankan Redis dan MySQL, lalu:
 
 ```powershell
 task init
-```
-
-> **Windows:** pastikan `C:\Users\<NAMA_USER>\go\bin` sudah masuk `PATH`.
-
----
-
-## ⚡ Menjalankan Server
-
-Pastikan MySQL & Redis aktif, dan database yang disebut di `env.json` sudah dibuat (database-nya sendiri — tabel dibuat lewat migration).
-
-```powershell
-task dev           # jalan dengan hot-reload (Air) — dipakai sehari-hari
-go run cmd/main.go # atau jalan langsung tanpa hot-reload
-```
-
-Server aktif di `http://localhost:3000`.
-
----
-
-## 🗄️ Migrasi Database
-
-Pakai migration berbasis file SQL (`golang-migrate`), **bukan** `AutoMigrate()` GORM — supaya perubahan skema database selalu tercatat riwayatnya, dan production tidak pernah mengubah skema secara diam-diam saat aplikasi start.
-
-```powershell
-task migrate-up                # terapkan semua migration yang belum jalan
-task migrate-down               # rollback 1 migration terakhir
-task migrate-version            # lihat versi migration saat ini
-task migrate-create name=xxx    # bikin file migration kosong (misal nambah kolom)
-```
-
-Jalankan `task migrate-up` sekarang untuk membuat tabel `users` dan `refresh_tokens` yang sudah tersedia bawaan kit ini.
-
-Setiap kali kamu generate modul baru (lihat bawah), file migration otomatis dibuat — tinggal `task migrate-up`, atau tambahkan `migrate=true` supaya langsung diterapkan.
-
----
-
-## 🏗️ Membuat Fitur Baru (Generator)
-
-Generate 1 modul CRUD lengkap — entity, model, repository, usecase, controller, migration, plus registrasi otomatis ke route & dependency injection — dengan 1 command.
-
-```powershell
-task gen name=Product fields="name:string,price:float64,is_active:bool"
-```
-
-Semua primary key default pakai **UUID v7**: tetap *time-ordered* (performa index database tetap bagus) tapi tidak bisa ditebak urutannya — mencegah orang luar meng-enumerasi data hanya dengan mengganti angka di URL.
-
-### Foreign Key otomatis
-
-Field berakhiran `_id` otomatis dikenali sebagai foreign key — tipe kolom disesuaikan, index dibuat, dan constraint `ON DELETE CASCADE` ditambahkan otomatis:
-
-```powershell
-task gen name=Order fields="user_id:string,total:float64,note:text?" tx=true test=true migrate=true
-```
-
-### Semua opsi generator
-
-| Flag | Kegunaan |
-|---|---|
-| `fields="..."` | Definisi field, format `nama:tipe` atau `nama:tipe?` (nullable) |
-| `tx=true` | Bungkus operasi write (Create/Update/Delete) ke dalam database transaction. Pakai kalau modul ini melibatkan >1 tabel yang harus berhasil/gagal bersamaan |
-| `test=true` | Generate juga file test (`usecase_test.go`, `controller_test.go`). **Otomatis aktif kalau `tx=true`** — logic transaksional adalah yang paling butuh diuji |
-| `dry=true` | Preview file apa saja yang akan dibuat, tanpa menulis apa pun ke disk |
-| `force=true` | Timpa file yang sudah ada tanpa konfirmasi |
-| `migrate=true` | Langsung jalankan migration setelah generate, tanpa command terpisah |
-
-```powershell
-task rm name=Product     # hapus modul + bersihkan semua registrasinya (kebalikan dari gen)
+task dev
 ```
 
 ---
 
-## 🔒 Kapan Perlu Row-Locking?
+## 🗄️ Struktur Konfigurasi
 
-Untuk operasi "baca nilai → putuskan sesuatu → tulis ulang nilai itu" (mengurangi stok, memotong saldo), transaksi biasa (`tx=true`) **saja belum cukup** — dua request bersamaan tetap bisa sama-sama membaca nilai lama sebelum salah satu sempat menyimpan perubahan.
+Konfigurasi dipecah menjadi file-file modular di `internal/config`:
+- `http.go`: Konfigurasi server Fiber, middleware, error handler.
+- `database.go`: Konfigurasi koneksi MySQL via GORM.
+- `logger.go`: Logrus dengan pemformatan yang seragam.
+- `storage.go`: Redis untuk *rate limiting* dan *caching*.
 
-`Repository[T]` menyediakan `FindByIDForUpdate` yang mengunci baris tersebut sampai transaksi selesai:
-
-```go
-err := u.TxManager.Run(ctx, func(ctxTx context.Context) error {
-    product, err := u.ProductRepository.FindByIDForUpdate(ctxTx, req.ProductId)
-    if err != nil {
-        return exception.NotFound("Product not found")
-    }
-    if product.Stock < req.Amount {
-        return exception.Conflict("Insufficient stock")
-    }
-    product.Stock -= req.Amount
-    return u.ProductRepository.Update(ctxTx, product)
-})
-```
-
-**Aturan praktis:** kalau cuma menampilkan data (`GetByID` untuk halaman detail), pakai `FindByID` biasa. Locking cuma diperlukan kalau race condition-nya benar-benar bisa merusak data — memakainya di semua tempat hanya akan memperlambat request lain tanpa manfaat.
-
----
-
-## 🔑 Alur Autentikasi
-
-Modul `User` + autentikasi sudah tersedia bawaan (bukan hasil generate, ditulis manual karena logic-nya berbeda dari CRUD biasa):
-
-```
-1. POST /api/v1/auth/register   { name, email, password }
-2. POST /api/v1/auth/login      { email, password }
-                                 → { "data": { "token": "...", "refresh_token": "..." } }
-3. Sertakan access token di setiap request ke endpoint terproteksi:
-   Authorization: Bearer <token>
-
-4. Kalau access token kedaluwarsa (default 1 jam):
-   POST /api/v1/auth/refresh     { "refresh_token": "..." }
-                                 → dapat access token baru
-
-5. POST /api/v1/auth/logout (butuh login) → revoke semua refresh token milik user ini
-```
-
-Refresh token disimpan di database dalam bentuk **hash** (bukan mentah) — kalau database bocor, isi kolom itu tidak bisa langsung dipakai untuk login sebagai user manapun.
-
-Endpoint lain yang tersedia: `GET /api/v1/users/current` (butuh login) — mengembalikan data user yang sedang login.
+Pemisahan ini membuat *Generator* dapat menyisipkan konfigurasi baru (seperti Kafka atau AWS S3) tanpa mengganggu konfigurasi yang sudah ada.
 
 ---
 
 ## 📦 Format Response API
 
-**Sukses (single item):**
+**Semua endpoint wajib menggunakan `foundation/response`**.
+
+Contoh sukses:
 ```json
 { "data": { "id": "...", "name": "..." } }
 ```
 
-**Sukses (list dengan pagination):**
-```json
-{
-  "data": [ { "id": "...", "name": "..." } ],
-  "paging": { "page": 1, "size": 10, "total_item": 42, "total_page": 5 }
-}
-```
-
-**Error:**
+Contoh error (otomatis di-map dari Validator):
 ```json
 {
   "error": {
@@ -292,58 +161,32 @@ Endpoint lain yang tersedia: `GET /api/v1/users/current` (butuh login) — menge
 }
 ```
 
-`code` bersifat machine-readable, dipakai frontend untuk `switch-case` tanpa parsing teks. Kode yang tersedia: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `UNAUTHORIZED`, `FORBIDDEN`, `BAD_REQUEST`, `INTERNAL_SERVER_ERROR`.
-
 ---
 
 ## 🧪 Testing & Mocks
 
-Semua Usecase bergantung ke *interface*, bukan struct konkret — supaya bisa diuji tanpa koneksi database asli.
+Semua Usecase bergantung ke *interface*, memungkinkannya diuji sepenuhnya tanpa koneksi database.
 
 ```powershell
-task mock    # generate ulang mock setiap kali interfaces.go berubah
-task test    # jalankan semua test + laporan coverage
+task mock    # generate ulang mock
+task test    # jalankan test + coverage
 ```
-
----
-
-## 📖 Swagger Docs
-
-```powershell
-task docs
-```
-
-Buka **http://localhost:3000/api/v1/docs/index.html** saat server jalan.
-
-> **Catatan:** `swag` (tool generator Swagger) punya dukungan yang belum sepenuhnya matang untuk Go generics. Kalau skema untuk response yang memakai `model.WebResponse[T]` tampil tidak lengkap di dokumentasi, ini keterbatasan tooling pihak ketiga, bukan bug di endpoint-nya.
 
 ---
 
 ## 🔨 Semua Perintah Task
 
 ```powershell
-task help              # dokumentasi interaktif semua command
-task dev                # jalankan server dengan hot-reload
-task build              # compile binary release ke bin/app
-task test               # jalankan test + coverage
-task lint               # cek code-style (golangci-lint)
-task fmt                # format kode
-task mock               # generate mock untuk testing
-task docs               # generate dokumentasi swagger
-task gen name=... fields="..." [tx=true] [test=true] [dry=true] [force=true] [migrate=true]
-task rm name=...
-task gokit-new <module-path>   # bootstrap project baru dari kit ini
-task migrate-up / migrate-down / migrate-version / migrate-create name=xxx
+task help              # List perintah
+task dev               # Hot-reload development
+task build             # Compile ke binary
+task test              # Test + coverage
+task lint              # Golangci-lint
+task fmt               # Format kode
+task mock              # Generate mock
+task docs              # Generate swagger
+task gen name=...      # Generate CRUD module
+task rm name=...       # Hapus module
+task migrate-up        # Eksekusi migration
+task gokit-new ...     # Buat project baru
 ```
-
----
-
-## 📝 Catatan & Rencana Pengembangan
-
-Supaya ekspektasinya jelas:
-
-- **CI/CD (GitHub Actions) belum ada — ini disengaja, bukan kelewat.** Selama kit ini masih 1 repo yang kamu kembangkan sendiri (belum di-reuse ke banyak project via `gokit-new`), CI belum krusial. **Begitu kamu mulai reuse kit ini ke project kedua**, CI wajib jadi prioritas — supaya perubahan di core tidak diam-diam menyebarkan bug ke semua project yang bergantung ke sini.
-- **Refresh token belum dirotasi tiap dipakai** — token yang sama tetap valid sampai expired 7 hari, bukan diganti tiap kali di-refresh. Level lebih aman (rotasi + deteksi reuse) bisa ditambahkan nanti kalau dibutuhkan, tapi implementasi sekarang (revoke saat logout, hash tersimpan, TTL pendek untuk access token) sudah jauh lebih aman dari single-token biasa.
-- **Rate limiter di-skip untuk `/docs`** — supaya dokumentasi Swagger tetap bisa diakses tanpa terkena limit endpoint umum.
-
-Kalau kamu berkontribusi ke kit ini, cek 2 poin pertama di atas sebagai starting point paling berdampak.

@@ -1,16 +1,14 @@
-package repository
+package {{.Snake}}
 
 import (
-	"{{.ModuleName}}/internal/entity"
+	"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"
 	"gorm.io/gorm"
 )
 
 type {{.Pascal}}Repository struct {
-	*Repository[entity.{{.Pascal}}]
+	*database.Repository[{{.Pascal}}]
 }
 
 func New{{.Pascal}}Repository(db *gorm.DB) *{{.Pascal}}Repository {
-	return &{{.Pascal}}Repository{
-		Repository: NewRepository[entity.{{.Pascal}}](db),
-	}
+	return &{{.Pascal}}Repository{Repository: database.NewRepository[{{.Pascal}}](db)}
 }

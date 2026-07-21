@@ -48,9 +48,6 @@ OPTIONAL FLAGS:
                         transactional logic is exactly what benefits most
                         from tests.
 
-  --with-interface      Generate Repository and Usecase Interfaces and inject them.
-                        By default, interface generation is skipped.
-
   --help, -h            Show this help message.
 
 SUPPORTED FIELD TYPES:
@@ -62,65 +59,84 @@ SUPPORTED FIELD TYPES:
 EXAMPLES:
   task gen name=Product fields="name:string,price:float64,stock:int"
   task gen name=Invoice fields="amount:float64,note:text?" tx=true
-  task gen name=Tag dry=true
+  task gen file=module-product.yml
   task rm name=Product
 `)
 }
 
 func runModuleGenerator(args []string) {
-	var name, fieldsStr string
-	var force, dryRun, isTx, runMigrate, genTest, withInterface bool
+	if len(args) == 0 {
+		fmt.Println("Error: Masukkan nama modul. Contoh: task gen product")
+		os.Exit(1)
+	}
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--help" || arg == "-h" {
-			printHelp()
-			os.Exit(0)
-		} else if arg == "--force" {
-			force = true
-		} else if arg == "--dry-run" {
-			dryRun = true
-		} else if arg == "--tx" {
-			isTx = true
-		} else if arg == "--with-interface" {
-			withInterface = true
-		} else if arg == "--test" {
-			genTest = true
-		} else if arg == "--migrate" {
-			runMigrate = true
-		} else if arg == "--name" && i+1 < len(args) {
-			name = args[i+1]
-			i++
-		} else if arg == "--fields" && i+1 < len(args) {
-			fieldsStr = args[i+1]
-			i++
-		} else if strings.HasPrefix(arg, "--name=") {
-			name = strings.TrimPrefix(arg, "--name=")
-		} else if strings.HasPrefix(arg, "--fields=") {
-			fieldsStr = strings.TrimPrefix(arg, "--fields=")
-		} else if !strings.HasPrefix(arg, "-") && name == "" {
-			name = arg
+	arg := args[0]
+	if arg == "--help" || arg == "-h" {
+		printHelp()
+		os.Exit(0)
+	}
+
+	// Assuming arg is the module name (e.g. product)
+	manifestPath := fmt.Sprintf("manifests/%s.yaml", strings.ToLower(arg))
+	manifest, err := LoadManifest(manifestPath)
+	if err != nil {
+		fmt.Printf("Gagal membaca manifest file %s: %v\n", manifestPath, err)
+		os.Exit(1)
+	}
+
+	if manifest.Name == "" {
+		fmt.Println("Error: 'name' wajib diisi di dalam manifest.")
+		os.Exit(1)
+	}
+
+	mod := ModuleNames{
+		Pascal:     toPascalCase(manifest.Name),
+		Snake:      toSnakeCase(manifest.Name),
+		Camel:      strings.ToLower(string(manifest.Name[0])) + toPascalCase(manifest.Name)[1:],
+		Plural:     pluralize(toSnakeCase(manifest.Name)),
+		IsTx:       manifest.Transactions,
+		ModuleName: getModuleName(),
+	}
+
+	for _, f := range manifest.Fields {
+		if strings.ToLower(f.Name) == "id" || strings.ToLower(f.Name) == "created_at" || strings.ToLower(f.Name) == "updated_at" {
+			continue // Skip implicit fields
 		}
+
+		sqlType := f.SqlType
+		if sqlType == "" {
+			sqlType = goTypeToSQLType(f.Type)
+		}
+		
+		isForeignKey := strings.HasSuffix(f.Name, "_id")
+		refTable := ""
+		if isForeignKey {
+			refTable = pluralize(strings.TrimSuffix(f.Name, "_id"))
+		}
+
+		mod.Fields = append(mod.Fields, Field{
+			Name:            f.Name,
+			Type:            f.Type,
+			RawType:         f.Type,
+			PascalName:      toPascalCase(f.Name),
+			SnakeName:       f.Name,
+			Nullable:        !f.Required,
+			SQLType:         sqlType,
+			IsForeignKey:    isForeignKey,
+			ReferencedTable: refTable,
+			Validate:        buildValidatorTag(f),
+		})
 	}
 
-	if name == "" {
-		fmt.Println("Error: --name wajib diisi. Contoh: --name Product")
-		fmt.Println("Jalankan dengan --help untuk melihat semua opsi yang tersedia.")
-		os.Exit(1)
+	// For manifest mode, we always run migrations for now
+	generateModule(mod, true, false, true, manifest.Tests)
+}
+
+func buildValidatorTag(f ManifestField) string {
+	if f.Required {
+		return "required"
 	}
-
-	if strings.Contains(name, "_") || strings.ToLower((name)[:1]) == (name)[:1] {
-		fmt.Println("⚠️  Gunakan PascalCase: --name OrderItem, bukan order_item atau orderItem")
-		os.Exit(1)
-	}
-
-	mod := buildModuleNames(name, fieldsStr, isTx, withInterface)
-
-	if isTx {
-		genTest = true
-	}
-
-	generateModule(mod, force, dryRun, runMigrate, genTest)
+	return ""
 }
 
 type Field struct {
@@ -129,10 +145,11 @@ type Field struct {
 	RawType         string // "text" (original declared type, used for SQL mapping)
 	PascalName      string // "Price"
 	SnakeName       string // "price"
-	Nullable        bool   // true jika ada '?' di type
+	Nullable        bool   // true jika tidak required
 	SQLType         string // "TEXT"
 	IsForeignKey    bool   // true jika suffix _id
 	ReferencedTable string // "users" jika user_id
+	Validate        string // "required,min=3"
 }
 
 type ModuleNames struct {
@@ -141,15 +158,14 @@ type ModuleNames struct {
 	Camel         string // "product"
 	Plural        string // "products"
 	Fields        []Field
-	IsTx          bool   // true if --tx flag is passed
-	WithInterface bool   // true if --with-interface flag is passed
+	IsTx          bool   // true if transaction enabled
 	ModuleName    string // e.g., "github.com/username/project"
 }
 
 func getModuleName() string {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
-		return "github.com/mkhsnw/smart-inventory"
+		return "github.com/mkhsnw/golang-starter-kit"
 	}
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -158,113 +174,10 @@ func getModuleName() string {
 			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
-	return "github.com/mkhsnw/smart-inventory"
+	return "github.com/mkhsnw/golang-starter-kit"
 }
 
-func buildModuleNames(input, fieldsStr string, isTx bool, withInterface bool) ModuleNames {
-	pascal := strings.ToUpper(input[:1]) + input[1:]
-	snake := toSnakeCase(input)
-	camel := strings.ToLower(input[:1]) + input[1:]
 
-	var fields []Field
-	if fieldsStr != "" {
-		parts := splitFields(fieldsStr)
-		for _, part := range parts {
-			kv := strings.SplitN(part, ":", 3)
-			if len(kv) >= 2 {
-				name := strings.TrimSpace(kv[0])
-				typ := strings.TrimSpace(kv[1])
-				customSQLType := ""
-				if len(kv) == 3 {
-					customSQLType = strings.TrimSpace(kv[2])
-				}
-				nullable := false
-				if strings.HasSuffix(typ, "?") {
-					nullable = true
-					typ = strings.TrimSuffix(typ, "?")
-				}
-				if strings.HasSuffix(customSQLType, "?") {
-					nullable = true
-					customSQLType = strings.TrimSuffix(customSQLType, "?")
-				}
-				goType := typ
-				// "text" is a SQL hint — Go type stays string
-				if typ == "text" {
-					goType = "string"
-				}
-				isFK := strings.HasSuffix(toSnakeCase(name), "_id")
-				refTable := ""
-				if isFK {
-					refTable = pluralize(strings.TrimSuffix(toSnakeCase(name), "_id"))
-				}
-
-				var sqlType string
-				if customSQLType != "" {
-					sqlType = customSQLType
-				} else {
-					sqlType = goTypeToSQLType(typ)
-					if isFK {
-						sqlType = "CHAR(36)"
-					}
-				}
-
-				pascalName := toPascalCase(name)
-				// Prevent GORM TableName() conflict
-				if pascalName == "TableName" {
-					pascalName = "TargetTable"
-				}
-
-				fields = append(fields, Field{
-					Name:            name,
-					Type:            goType,
-					RawType:         typ,
-					PascalName:      pascalName,
-					SnakeName:       toSnakeCase(name),
-					Nullable:        nullable,
-					SQLType:         sqlType,
-					IsForeignKey:    isFK,
-					ReferencedTable: refTable,
-				})
-			}
-		}
-	}
-
-	return ModuleNames{
-		Pascal:        pascal,
-		Snake:         snake,
-		Camel:         camel,
-		Plural:        pluralize(snake),
-		Fields:        fields,
-		IsTx:          isTx,
-		WithInterface: withInterface,
-		ModuleName:    getModuleName(),
-	}
-}
-
-func splitFields(s string) []string {
-	var parts []string
-	var current strings.Builder
-	inParens := 0
-
-	for _, c := range s {
-		if c == '(' {
-			inParens++
-		} else if c == ')' {
-			inParens--
-		}
-
-		if c == ',' && inParens == 0 {
-			parts = append(parts, current.String())
-			current.Reset()
-		} else {
-			current.WriteRune(c)
-		}
-	}
-	if current.Len() > 0 {
-		parts = append(parts, current.String())
-	}
-	return parts
-}
 
 func pluralize(s string) string {
 	if strings.HasSuffix(s, "y") && len(s) > 1 {
@@ -340,22 +253,17 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	}
 
 	files := []fileToGenerate{
-		{"entity.go.tmpl", fmt.Sprintf("internal/entity/%s_entity.go", mod.Snake)},
-		{"model.go.tmpl", fmt.Sprintf("internal/model/%s_model.go", mod.Snake)},
-		{"repository.go.tmpl", fmt.Sprintf("internal/repository/%s_repository.go", mod.Snake)},
-		{"usecase.go.tmpl", fmt.Sprintf("internal/usecase/%s_usecase.go", mod.Snake)},
-		{"controller.go.tmpl", fmt.Sprintf("internal/delivery/http/controller/%s_controller.go", mod.Snake)},
+		{"entity.go.tmpl", fmt.Sprintf("internal/module/%s/entity.go", mod.Snake)},
+		{"repository.go.tmpl", fmt.Sprintf("internal/module/%s/repository.go", mod.Snake)},
+		{"service.go.tmpl", fmt.Sprintf("internal/module/%s/service.go", mod.Snake)},
+		{"controller.go.tmpl", fmt.Sprintf("internal/module/%s/controller.go", mod.Snake)},
+		{"route.go.tmpl", fmt.Sprintf("internal/module/%s/route.go", mod.Snake)},
+		{"dto_request.go.tmpl", fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake)},
+		{"dto_response.go.tmpl", fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake)},
+		{"mapper.go.tmpl", fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake)},
 		{"migration_up.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, baseName)},
 		{"migration_down.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, baseName)},
 	}
-
-	if genTest {
-		files = append(files,
-			fileToGenerate{"usecase_test.go.tmpl", fmt.Sprintf("internal/usecase/%s_usecase_test.go", mod.Snake)},
-			fileToGenerate{"controller_test.go.tmpl", fmt.Sprintf("internal/delivery/http/controller/%s_controller_test.go", mod.Snake)},
-		)
-	}
-
 	for _, f := range files {
 		if dryRun {
 			fmt.Printf("[DRY-RUN] Would create %s\n", f.OutputPath)
@@ -369,11 +277,6 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	}
 
 	injectToAppGo(mod, dryRun)
-	injectToRouteGo(mod, dryRun)
-	if mod.WithInterface {
-		injectToRepositoryInterfaces(mod, dryRun)
-		injectToUsecaseInterfaces(mod, dryRun)
-	}
 
 	if dryRun {
 		fmt.Println("\n[DRY-RUN] Module generation simulated successfully!")
@@ -414,13 +317,14 @@ func runGofmtOnGen(mod ModuleNames) {
 		"internal/delivery/http/route/route.go",
 		"internal/repository/interfaces.go",
 		"internal/usecase/interfaces.go",
-		fmt.Sprintf("internal/entity/%s_entity.go", mod.Snake),
-		fmt.Sprintf("internal/model/%s_model.go", mod.Snake),
-		fmt.Sprintf("internal/repository/%s_repository.go", mod.Snake),
-		fmt.Sprintf("internal/usecase/%s_usecase.go", mod.Snake),
-		fmt.Sprintf("internal/delivery/http/controller/%s_controller.go", mod.Snake),
-		fmt.Sprintf("internal/usecase/%s_usecase_test.go", mod.Snake),
-		fmt.Sprintf("internal/delivery/http/controller/%s_controller_test.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/entity.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/repository.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/service.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/controller.go", mod.Snake),
+		fmt.Sprintf("internal/module/%s/route.go", mod.Snake),
 	}
 	for _, f := range files {
 		if _, err := os.Stat(f); err == nil {
@@ -508,25 +412,31 @@ func injectToAppGo(mod ModuleNames, dryRun bool) {
 	}
 
 	// Guard: skip if already injected
-	if strings.Contains(content, mod.Camel+"Repo := repository.New"+mod.Pascal+"Repository") {
+	if strings.Contains(content, mod.Camel+"Repo := "+mod.Snake+".New"+mod.Pascal+"Repository") {
 		fmt.Printf("⚠ %sRepository sudah ter-inject di app.go, dilewati.\n", mod.Pascal)
 		return
 	}
 
-	repoCode := fmt.Sprintf("%sRepo := repository.New%sRepository(config.Database)\n\t// @InjectRepo", mod.Camel, mod.Pascal)
+	repoCode := fmt.Sprintf("%sRepo := %s.New%sRepository(config.Database)\n\t// @InjectRepo", mod.Camel, mod.Snake, mod.Pascal)
 	var usecaseCode string
 	if mod.IsTx {
-		usecaseCode = fmt.Sprintf("%sUsecase := usecase.New%sUsecase(config.Logger, txManager, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Pascal, mod.Camel)
+		usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, txManager, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
 	} else {
-		usecaseCode = fmt.Sprintf("%sUsecase := usecase.New%sUsecase(config.Logger, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Pascal, mod.Camel)
+		usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
 	}
-	controllerCode := fmt.Sprintf("%sController := controller.New%sController(%sUsecase, config.Validator)\n\t// @InjectController", mod.Camel, mod.Pascal, mod.Camel)
-	routeConfigCode := fmt.Sprintf("%sController: %sController,\n\t\t// @InjectRouteConfig", mod.Pascal, mod.Camel)
+	controllerCode := fmt.Sprintf("%sController := %s.New%sController(%sService, config.Validator)\n\t// @InjectController", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
+	routeConfigCode := fmt.Sprintf("%s.SetupRoutes(api, %sController, authMiddleware)\n\t// @InjectRouteConfig", mod.Snake, mod.Camel)
 
 	content = strings.Replace(content, "// @InjectRepo", repoCode, 1)
 	content = strings.Replace(content, "// @InjectUsecase", usecaseCode, 1)
 	content = strings.Replace(content, "// @InjectController", controllerCode, 1)
 	content = strings.Replace(content, "// @InjectRouteConfig", routeConfigCode, 1)
+
+	// Inject import
+	importPath := fmt.Sprintf(`"github.com/mkhsnw/golang-starter-kit/internal/module/%s"`, mod.Snake)
+	if !strings.Contains(content, importPath) {
+		content = strings.Replace(content, "import (", "import (\n\t"+importPath, 1)
+	}
 
 	if dryRun {
 		fmt.Println("[DRY-RUN] Would inject to app.go")
@@ -536,59 +446,6 @@ func injectToAppGo(mod ModuleNames, dryRun bool) {
 	os.WriteFile(appPath, []byte(content), 0644)
 	fmt.Println("✓ Injected to app.go")
 }
-
-func injectToRouteGo(mod ModuleNames, dryRun bool) {
-	routePath := "internal/delivery/http/route/route.go"
-	contentBytes, err := os.ReadFile(routePath)
-	if err != nil {
-		fmt.Printf("Gagal membaca route.go: %v\n", err)
-		return
-	}
-	content := string(contentBytes)
-
-	// Guard: skip if already injected
-	if strings.Contains(content, mod.Pascal+"Controller *controller."+mod.Pascal+"Controller") {
-		fmt.Printf("⚠ %sController sudah ada di route.go, dilewati.\n", mod.Pascal)
-		return
-	}
-
-	if !strings.Contains(content, "// @InjectRouteStruct") {
-		fmt.Println("⚠️  WARNING: Marker // @InjectRouteStruct tidak ditemukan di route.go!")
-		fmt.Println("   Kode TIDAK ter-inject. Tambahkan marker secara manual.")
-		return
-	}
-
-	routeStructCode := fmt.Sprintf("%sController *controller.%sController\n\t// @InjectRouteStruct", mod.Pascal, mod.Pascal)
-	routeSetupCode := fmt.Sprintf("c.setup%sRoutes(apiAuth)\n\t// @InjectRouteSetup", mod.Pascal)
-
-	content = strings.Replace(content, "// @InjectRouteStruct", routeStructCode, 1)
-	content = strings.Replace(content, "// @InjectRouteSetup", routeSetupCode, 1)
-
-	// Add the setup function at the end of the file
-	setupFunc := fmt.Sprintf(`
-
-func (c *RouteConfig) setup%sRoutes(api fiber.Router) {
-	%s := api.Group("/%s")
-	
-	%s.Post("/", c.%sController.Create)
-	%s.Get("/", c.%sController.GetAll)
-	%s.Get("/:id", c.%sController.GetByID)
-	%s.Put("/:id", c.%sController.Update)
-	%s.Delete("/:id", c.%sController.Delete)
-}
-`, mod.Pascal, mod.Plural, mod.Plural, mod.Plural, mod.Pascal, mod.Plural, mod.Pascal, mod.Plural, mod.Pascal, mod.Plural, mod.Pascal, mod.Plural, mod.Pascal)
-
-	content += setupFunc
-
-	if dryRun {
-		fmt.Println("[DRY-RUN] Would inject to route.go")
-		return
-	}
-
-	os.WriteFile(routePath, []byte(content), 0644)
-	fmt.Println("✓ Injected to route.go")
-}
-
 func renderFile(f fileToGenerate, mod ModuleNames, force bool) error {
 	// Jangan timpa file yang sudah ada kecuali flag --force diberikan
 	if _, err := os.Stat(f.OutputPath); err == nil && !force {
@@ -619,66 +476,3 @@ func main() {
 	runModuleGenerator(os.Args[1:])
 }
 
-func injectToRepositoryInterfaces(mod ModuleNames, dryRun bool) {
-	filePath := "internal/repository/interfaces.go"
-	contentBytes, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Printf("Gagal membaca interfaces.go (repository): %v\n", err)
-		return
-	}
-	content := string(contentBytes)
-
-	// Guard: skip if interface already exists
-	if strings.Contains(content, "type "+mod.Pascal+"RepositoryInterface interface") {
-		fmt.Printf("⚠ %sRepositoryInterface sudah ada di repository/interfaces.go, dilewati.\n", mod.Pascal)
-		return
-	}
-
-	if !strings.Contains(content, "// @InjectRepositoryInterface") {
-		fmt.Println("⚠️  WARNING: Marker // @InjectRepositoryInterface tidak ditemukan di repository/interfaces.go!")
-		return
-	}
-
-	interfaceCode := fmt.Sprintf("type %sRepositoryInterface interface {\n\tRepositoryInterface[entity.%s]\n}\n\n// @InjectRepositoryInterface", mod.Pascal, mod.Pascal)
-	content = strings.Replace(content, "// @InjectRepositoryInterface", interfaceCode, 1)
-
-	if dryRun {
-		fmt.Println("[DRY-RUN] Would inject to repository/interfaces.go")
-		return
-	}
-
-	os.WriteFile(filePath, []byte(content), 0644)
-	fmt.Println("✓ Injected to repository/interfaces.go")
-}
-
-func injectToUsecaseInterfaces(mod ModuleNames, dryRun bool) {
-	filePath := "internal/usecase/interfaces.go"
-	contentBytes, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Printf("Gagal membaca interfaces.go (usecase): %v\n", err)
-		return
-	}
-	content := string(contentBytes)
-
-	// Guard: skip if interface already exists
-	if strings.Contains(content, "type "+mod.Pascal+"UsecaseInterface interface") {
-		fmt.Printf("⚠ %sUsecaseInterface sudah ada di usecase/interfaces.go, dilewati.\n", mod.Pascal)
-		return
-	}
-
-	if !strings.Contains(content, "// @InjectUsecaseInterface") {
-		fmt.Println("⚠️  WARNING: Marker // @InjectUsecaseInterface tidak ditemukan di usecase/interfaces.go!")
-		return
-	}
-
-	interfaceCode := fmt.Sprintf("type %sUsecaseInterface interface {\n\tCreate(ctx context.Context, req *model.Create%sRequest) (*model.%sResponse, error)\n\tGetByID(ctx context.Context, id string) (*model.%sResponse, error)\n\tGetAll(ctx context.Context, cursor string, size int) ([]model.%sResponse, *string, error)\n\tUpdate(ctx context.Context, id string, req *model.Update%sRequest) (*model.%sResponse, error)\n\tDelete(ctx context.Context, id string) error\n}\n\n// @InjectUsecaseInterface", mod.Pascal, mod.Pascal, mod.Pascal, mod.Pascal, mod.Pascal, mod.Pascal, mod.Pascal)
-	content = strings.Replace(content, "// @InjectUsecaseInterface", interfaceCode, 1)
-
-	if dryRun {
-		fmt.Println("[DRY-RUN] Would inject to usecase/interfaces.go")
-		return
-	}
-
-	os.WriteFile(filePath, []byte(content), 0644)
-	fmt.Println("✓ Injected to usecase/interfaces.go")
-}

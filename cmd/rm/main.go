@@ -80,45 +80,23 @@ func main() {
 		fmt.Printf("🗑️ Menghapus modul %s...\n", pascal)
 	}
 
-	// 1. Delete Files
-	filesToDelete := []string{
-		filepath.Join(cwd, "internal", "entity", fmt.Sprintf("%s_entity.go", snake)),
-		filepath.Join(cwd, "internal", "model", fmt.Sprintf("%s_model.go", snake)),
-		filepath.Join(cwd, "internal", "repository", fmt.Sprintf("%s_repository.go", snake)),
-		filepath.Join(cwd, "internal", "usecase", fmt.Sprintf("%s_usecase.go", snake)),
-		filepath.Join(cwd, "internal", "usecase", fmt.Sprintf("%s_usecase_test.go", snake)),
-		filepath.Join(cwd, "internal", "delivery", "http", "controller", fmt.Sprintf("%s_controller.go", snake)),
-		filepath.Join(cwd, "internal", "delivery", "http", "controller", fmt.Sprintf("%s_controller_test.go", snake)),
-		filepath.Join(cwd, "internal", "repository", "mocks", fmt.Sprintf("%sRepositoryInterface.go", pascal)),
-		filepath.Join(cwd, "internal", "usecase", "mocks", fmt.Sprintf("%sUsecaseInterface.go", pascal)),
-	}
-
-	for _, f := range filesToDelete {
-		if _, err := os.Stat(f); os.IsNotExist(err) {
-			continue
-		}
-
-		if dryRun {
-			fmt.Printf("[DRY-RUN] Would delete: %s\n", f)
-			continue
-		}
-		if err := os.Remove(f); err == nil {
-			fmt.Printf("✓ Terhapus: %s\n", f)
+	// 1. Delete Module Directory
+	moduleDir := filepath.Join(cwd, "internal", "module", snake)
+	if dryRun {
+		fmt.Printf("[DRY-RUN] Would delete module directory: %s\n", moduleDir)
+	} else {
+		if err := os.RemoveAll(moduleDir); err == nil {
+			fmt.Printf("✓ Terhapus: %s\n", moduleDir)
 		} else {
-			fmt.Printf("⚠ Gagal menghapus %s: %v\n", f, err)
+			fmt.Printf("⚠ Gagal menghapus direktori modul %s: %v\n", moduleDir, err)
 		}
 	}
 
-	// Remove Migrations
+	// 2. Remove Migrations
 	removeMigrations(cwd, plural, dryRun)
 
-	// 2. Remove from Interfaces
-	removeFromRepoInterfaces(cwd, pascal, dryRun)
-	removeFromUsecaseInterfaces(cwd, pascal, dryRun)
-
-	// 3. Remove from App & Route
-	removeFromAppGo(cwd, pascal, camel, dryRun)
-	removeFromRouteGo(cwd, pascal, plural, dryRun)
+	// 3. Remove from App.go
+	removeFromAppGo(cwd, pascal, camel, snake, dryRun)
 
 	// 4. Run gofmt to clean up injected files if not dry-run
 	if !dryRun {
@@ -153,51 +131,7 @@ func removeMigrations(cwd, pluralSnake string, dryRun bool) {
 	}
 }
 
-func removeFromRepoInterfaces(cwd, pascal string, dryRun bool) {
-	path := filepath.Join(cwd, "internal", "repository", "interfaces.go")
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-	content := string(contentBytes)
-
-	pattern := fmt.Sprintf(`(?s)type %sRepositoryInterface interface \{.*?\n\}\n*`, pascal)
-	re := regexp.MustCompile(pattern)
-	newContent := re.ReplaceAllString(content, "")
-
-	if content != newContent {
-		if dryRun {
-			fmt.Printf("[DRY-RUN] Would un-inject repository interface for %s from interfaces.go\n", pascal)
-			return
-		}
-		os.WriteFile(path, []byte(newContent), 0644)
-		fmt.Println("✓ Un-injected from repository/interfaces.go")
-	}
-}
-
-func removeFromUsecaseInterfaces(cwd, pascal string, dryRun bool) {
-	path := filepath.Join(cwd, "internal", "usecase", "interfaces.go")
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-	content := string(contentBytes)
-
-	pattern := fmt.Sprintf(`(?s)type %sUsecaseInterface interface \{.*?\n\}\n*`, pascal)
-	re := regexp.MustCompile(pattern)
-	newContent := re.ReplaceAllString(content, "")
-
-	if content != newContent {
-		if dryRun {
-			fmt.Printf("[DRY-RUN] Would un-inject usecase interface for %s from interfaces.go\n", pascal)
-			return
-		}
-		os.WriteFile(path, []byte(newContent), 0644)
-		fmt.Println("✓ Un-injected from usecase/interfaces.go")
-	}
-}
-
-func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
+func removeFromAppGo(cwd, pascal, camel, snake string, dryRun bool) {
 	path := filepath.Join(cwd, "internal", "config", "app.go")
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
@@ -208,15 +142,18 @@ func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
 	lines := strings.Split(content, "\n")
 	var newLines []string
 
-	patternRepo := fmt.Sprintf(`\b%sRepo\s*:=\s*repository\.New%sRepository`, camel, pascal)
-	patternUsecase := fmt.Sprintf(`\b%sUsecase\s*:=\s*usecase\.New%sUsecase`, camel, pascal)
-	patternController := fmt.Sprintf(`\b%sController\s*:=\s*controller\.New%sController`, camel, pascal)
-	patternRouteConfig := fmt.Sprintf(`\b%sController\s*:\s*%sController,`, pascal, camel)
+	// Patterns based on generator injection in cmd/gen/main.go
+	patternRepo := fmt.Sprintf(`\b%sRepo\s*:=\s*%s\.New%sRepository`, camel, snake, pascal)
+	patternUsecase := fmt.Sprintf(`\b%sService\s*:=\s*%s\.New%sService`, camel, snake, pascal)
+	patternController := fmt.Sprintf(`\b%sController\s*:=\s*%s\.New%sController`, camel, snake, pascal)
+	patternRouteConfig := fmt.Sprintf(`\b%s\.SetupRoutes\(api,\s*%sController`, snake, camel)
+	patternImport := fmt.Sprintf(`"github.com/mkhsnw/golang-starter-kit/internal/module/%s"`, snake)
 
 	reRepo := regexp.MustCompile(patternRepo)
 	reUsecase := regexp.MustCompile(patternUsecase)
 	reController := regexp.MustCompile(patternController)
 	reRouteConfig := regexp.MustCompile(patternRouteConfig)
+	reImport := regexp.MustCompile(patternImport)
 
 	for _, line := range lines {
 		if reRepo.MatchString(line) {
@@ -229,6 +166,9 @@ func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
 			continue
 		}
 		if reRouteConfig.MatchString(line) {
+			continue
+		}
+		if reImport.MatchString(line) {
 			continue
 		}
 		newLines = append(newLines, line)
@@ -245,53 +185,9 @@ func removeFromAppGo(cwd, pascal, camel string, dryRun bool) {
 	}
 }
 
-func removeFromRouteGo(cwd, pascal, plural string, dryRun bool) {
-	path := filepath.Join(cwd, "internal", "delivery", "http", "route", "route.go")
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-	content := string(contentBytes)
-
-	lines := strings.Split(content, "\n")
-	var newLines []string
-
-	patternController := fmt.Sprintf(`\b%sController\s+\*controller\.%sController\b`, pascal, pascal)
-	reController := regexp.MustCompile(patternController)
-
-	for _, line := range lines {
-		if reController.MatchString(line) {
-			continue
-		}
-		if strings.Contains(line, fmt.Sprintf("c.setup%sRoutes(", pascal)) {
-			continue
-		}
-		newLines = append(newLines, line)
-	}
-
-	newContent := strings.Join(newLines, "\n")
-
-	// Remove setup function
-	pattern := fmt.Sprintf(`(?s)func \(c \*RouteConfig\) setup%sRoutes\(api fiber\.Router\) \{.*?\n\}\n*`, pascal)
-	re := regexp.MustCompile(pattern)
-	newContent = re.ReplaceAllString(newContent, "")
-
-	if content != newContent {
-		if dryRun {
-			fmt.Printf("[DRY-RUN] Would un-inject routes for %s from route.go\n", pascal)
-			return
-		}
-		os.WriteFile(path, []byte(newContent), 0644)
-		fmt.Println("✓ Un-injected from route.go")
-	}
-}
-
 func runGofmt(cwd string) {
 	files := []string{
 		filepath.Join(cwd, "internal", "config", "app.go"),
-		filepath.Join(cwd, "internal", "delivery", "http", "route", "route.go"),
-		filepath.Join(cwd, "internal", "repository", "interfaces.go"),
-		filepath.Join(cwd, "internal", "usecase", "interfaces.go"),
 	}
 
 	for _, f := range files {

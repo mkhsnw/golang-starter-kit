@@ -1,0 +1,128 @@
+package {{.Snake}}
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
+	"github.com/mkhsnw/golang-starter-kit/internal/module/{{.Snake}}/dto"
+	{{ if .IsTx }}"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"{{ end }}
+	"github.com/sirupsen/logrus"
+)
+
+type {{.Pascal}}Service struct {
+	Log  *logrus.Logger
+{{- if .IsTx }}
+	Tx   database.TransactionManager
+{{- end }}
+	Repo *{{.Pascal}}Repository
+}
+
+var (
+	Err{{.Pascal}}NotFound       = exception.New(exception.NOT_FOUND, "{{.Pascal}} not found")
+	ErrCreate{{.Pascal}}Failed   = exception.New(exception.INTERNAL_ERROR, "Failed to create {{.Snake}}")
+	ErrUpdate{{.Pascal}}Failed   = exception.New(exception.INTERNAL_ERROR, "Failed to update {{.Snake}}")
+	ErrDelete{{.Pascal}}Failed   = exception.New(exception.INTERNAL_ERROR, "Failed to delete {{.Snake}}")
+	ErrFetch{{.Pascal}}Failed    = exception.New(exception.INTERNAL_ERROR, "Failed to fetch {{.Plural}}")
+)
+
+func New{{.Pascal}}Service(log *logrus.Logger{{ if .IsTx }}, tx database.TransactionManager{{ end }}, repo *{{.Pascal}}Repository) *{{.Pascal}}Service {
+	return &{{.Pascal}}Service{
+		Log:  log,
+{{- if .IsTx }}
+		Tx:   tx,
+{{- end }}
+		Repo: repo,
+	}
+}
+
+func (s *{{.Pascal}}Service) Create(ctx context.Context, req *dto.Create{{.Pascal}}Request) (*dto.{{.Pascal}}Response, error) {
+	entity := &{{.Pascal}}{
+		ID:        uuid.NewString(),
+{{- range .Fields }}
+		{{.PascalName}}: req.{{.PascalName}},
+{{- end }}
+	}
+
+{{- if .IsTx }}
+	err := s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+		return s.Repo.Create(txCtx, entity)
+	})
+{{- else }}
+	err := s.Repo.Create(ctx, entity)
+{{- end }}
+	if err != nil {
+		s.Log.WithError(err).Error("Failed to create {{.Snake}}")
+		return nil, ErrCreate{{.Pascal}}Failed
+	}
+
+	return To{{.Pascal}}Response(entity), nil
+}
+
+func (s *{{.Pascal}}Service) GetByID(ctx context.Context, id string) (*dto.{{.Pascal}}Response, error) {
+	entity, err := s.Repo.FindByID(ctx, id)
+	if err != nil {
+		s.Log.WithError(err).Warn("{{.Pascal}} not found")
+		return nil, Err{{.Pascal}}NotFound
+	}
+
+	return To{{.Pascal}}Response(entity), nil
+}
+
+func (s *{{.Pascal}}Service) Update(ctx context.Context, id string, req *dto.Update{{.Pascal}}Request) (*dto.{{.Pascal}}Response, error) {
+	entity, err := s.Repo.FindByID(ctx, id)
+	if err != nil {
+		s.Log.WithError(err).Warn("{{.Pascal}} not found for update")
+		return nil, Err{{.Pascal}}NotFound
+	}
+
+{{- range .Fields }}
+	entity.{{.PascalName}} = req.{{.PascalName}}
+{{- end }}
+
+{{- if .IsTx }}
+	err = s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+		return s.Repo.Update(txCtx, entity)
+	})
+{{- else }}
+	err = s.Repo.Update(ctx, entity)
+{{- end }}
+	if err != nil {
+		s.Log.WithError(err).Error("Failed to update {{.Snake}}")
+		return nil, ErrUpdate{{.Pascal}}Failed
+	}
+
+	return To{{.Pascal}}Response(entity), nil
+}
+
+func (s *{{.Pascal}}Service) Delete(ctx context.Context, id string) error {
+	entity, err := s.Repo.FindByID(ctx, id)
+	if err != nil {
+		s.Log.WithError(err).Warn("{{.Pascal}} not found for deletion")
+		return Err{{.Pascal}}NotFound
+	}
+
+{{- if .IsTx }}
+	err = s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+		return s.Repo.Delete(txCtx, entity)
+	})
+{{- else }}
+	err = s.Repo.Delete(ctx, entity)
+{{- end }}
+	if err != nil {
+		s.Log.WithError(err).Error("Failed to delete {{.Snake}}")
+		return ErrDelete{{.Pascal}}Failed
+	}
+
+	return nil
+}
+
+func (s *{{.Pascal}}Service) GetAll(ctx context.Context, page, size int) ([]dto.{{.Pascal}}Response, int64, error) {
+	entities, total, err := s.Repo.FindAllPaginated(ctx, page, size)
+	if err != nil {
+		s.Log.WithError(err).Error("Failed to fetch {{.Plural}}")
+		return nil, 0, ErrFetch{{.Pascal}}Failed
+	}
+
+	return To{{.Pascal}}Responses(entities), total, nil
+}

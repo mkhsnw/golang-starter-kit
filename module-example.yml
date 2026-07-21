@@ -1,0 +1,18 @@
+module: Category
+options:
+  transactional: false
+  generate_test: false
+fields:
+  - name: title
+    type: string
+    validate: "required,min=3,max=100"
+  - name: description
+    type: string
+    validate: "omitempty,max=500"
+  - name: is_active
+    type: bool
+    validate: "required"
+  - name: status
+    type: string
+    sql_type: "ENUM('PENDING', 'ACTIVE', 'INACTIVE')"
+    validate: "required"

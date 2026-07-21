@@ -1,0 +1,22 @@
+package {{.Snake}}
+
+import "github.com/mkhsnw/golang-starter-kit/internal/module/{{.Snake}}/dto"
+
+func To{{.Pascal}}Response(entity *{{.Pascal}}) *dto.{{.Pascal}}Response {
+	return &dto.{{.Pascal}}Response{
+		ID:        entity.ID,
+{{- range .Fields }}
+		{{.PascalName}}: entity.{{.PascalName}},
+{{- end }}
+		CreatedAt: entity.CreatedAt,
+		UpdatedAt: entity.UpdatedAt,
+	}
+}
+
+func To{{.Pascal}}Responses(entities []{{.Pascal}}) []dto.{{.Pascal}}Response {
+	var responses []dto.{{.Pascal}}Response
+	for _, entity := range entities {
+		responses = append(responses, *To{{.Pascal}}Response(&entity))
+	}
+	return responses
+}

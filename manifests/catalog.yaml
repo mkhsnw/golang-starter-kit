@@ -1,0 +1,15 @@
+name: Catalog
+table: catalogs
+transactions: false
+tests: false
+fields:
+  - name: id
+    type: string
+    primary: true
+    required: true
+  - name: name
+    type: string
+    required: true
+  - name: description
+    type: string
+    required: false

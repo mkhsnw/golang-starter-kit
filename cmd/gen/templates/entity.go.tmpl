@@ -1,16 +1,18 @@
-package entity
+package {{.Snake}}
 
-import "time"
+import (
+	"time"
+)
 
 type {{.Pascal}} struct {
-	ID        string    `gorm:"primaryKey;type:varchar(36);column:id"`
-{{- range .Fields}}
-	{{.PascalName}} {{.Type}}    `gorm:"column:{{.SnakeName}}{{if hasSuffix .SnakeName "_id"}};type:varchar(36);index{{end}}"`
-{{- end}}
+	ID        string    `gorm:"primaryKey;column:id;type:varchar(36)"`
+{{- range .Fields }}
+	{{ .PascalName }} {{ .Type }} `gorm:"column:{{ .SnakeName }};type:{{ .RawType }};not null"`
+{{- end }}
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
-func (e *{{.Pascal}}) TableName() string {
+func (m *{{.Pascal}}) TableName() string {
 	return "{{.Plural}}"
 }
