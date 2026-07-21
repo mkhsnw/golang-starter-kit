@@ -2,10 +2,10 @@ package {{.Snake}}
 
 import (
 	"strconv"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/mapper"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/response"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/validator"
-	"github.com/mkhsnw/golang-starter-kit/internal/module/{{.Snake}}/dto"
+	"{{.ModuleName}}/internal/foundation/mapper"
+	"{{.ModuleName}}/internal/foundation/response"
+	"{{.ModuleName}}/internal/foundation/validator"
+	"{{.ModuleName}}/internal/module/{{.Snake}}/dto"
 	playvalidator "github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 )

@@ -1,0 +1,9 @@
+package dto
+
+type ProcessResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+{{- range .Fields }}
+	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}"`
+{{- end }}
+}

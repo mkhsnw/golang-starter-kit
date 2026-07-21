@@ -147,7 +147,7 @@ func removeFromAppGo(cwd, pascal, camel, snake string, dryRun bool) {
 	patternUsecase := fmt.Sprintf(`\b%sService\s*:=\s*%s\.New%sService`, camel, snake, pascal)
 	patternController := fmt.Sprintf(`\b%sController\s*:=\s*%s\.New%sController`, camel, snake, pascal)
 	patternRouteConfig := fmt.Sprintf(`\b%s\.SetupRoutes\(api,\s*%sController`, snake, camel)
-	patternImport := fmt.Sprintf(`"github.com/mkhsnw/golang-starter-kit/internal/module/%s"`, snake)
+	patternImport := fmt.Sprintf(`"%s/internal/module/%s"`, getModuleName(), snake)
 
 	reRepo := regexp.MustCompile(patternRepo)
 	reUsecase := regexp.MustCompile(patternUsecase)
@@ -228,3 +228,19 @@ func toPlural(s string) string {
 	}
 	return s + "s"
 }
+
+func getModuleName() string {
+	data, err := os.ReadFile("go.mod")
+	if err != nil {
+		return "github.com/mkhsnw/golang-starter-kit"
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return "github.com/mkhsnw/golang-starter-kit"
+}
+

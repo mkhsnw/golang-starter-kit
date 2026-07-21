@@ -1,6 +1,6 @@
 package {{.Snake}}
 
-import "github.com/mkhsnw/golang-starter-kit/internal/module/{{.Snake}}/dto"
+import "{{.ModuleName}}/internal/module/{{.Snake}}/dto"
 
 func To{{.Pascal}}Response(entity *{{.Pascal}}) *dto.{{.Pascal}}Response {
 	return &dto.{{.Pascal}}Response{

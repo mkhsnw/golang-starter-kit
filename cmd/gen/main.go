@@ -96,6 +96,7 @@ func runModuleGenerator(args []string) {
 		Plural:     pluralize(toSnakeCase(manifest.Name)),
 		IsTx:       manifest.Transactions,
 		ModuleName: getModuleName(),
+		IsBusiness: manifest.Type == "business",
 	}
 
 	for _, f := range manifest.Fields {
@@ -114,9 +115,14 @@ func runModuleGenerator(args []string) {
 			refTable = pluralize(strings.TrimSuffix(f.Name, "_id"))
 		}
 
+		goType := f.Type
+		if goType == "text" {
+			goType = "string"
+		}
+		
 		mod.Fields = append(mod.Fields, Field{
 			Name:            f.Name,
-			Type:            f.Type,
+			Type:            goType,
 			RawType:         f.Type,
 			PascalName:      toPascalCase(f.Name),
 			SnakeName:       f.Name,
@@ -128,8 +134,8 @@ func runModuleGenerator(args []string) {
 		})
 	}
 
-	// For manifest mode, we always run migrations for now
-	generateModule(mod, true, false, true, manifest.Tests)
+	// For manifest mode, we run migrations only if it's not a business module
+	generateModule(mod, true, false, !mod.IsBusiness, manifest.Tests)
 }
 
 func buildValidatorTag(f ManifestField) string {
@@ -160,6 +166,7 @@ type ModuleNames struct {
 	Fields        []Field
 	IsTx          bool   // true if transaction enabled
 	ModuleName    string // e.g., "github.com/username/project"
+	IsBusiness    bool   // true if business module
 }
 
 func getModuleName() string {
@@ -252,17 +259,28 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 		}
 	}
 
-	files := []fileToGenerate{
-		{"entity.go.tmpl", fmt.Sprintf("internal/module/%s/entity.go", mod.Snake)},
-		{"repository.go.tmpl", fmt.Sprintf("internal/module/%s/repository.go", mod.Snake)},
-		{"service.go.tmpl", fmt.Sprintf("internal/module/%s/service.go", mod.Snake)},
-		{"controller.go.tmpl", fmt.Sprintf("internal/module/%s/controller.go", mod.Snake)},
-		{"route.go.tmpl", fmt.Sprintf("internal/module/%s/route.go", mod.Snake)},
-		{"dto_request.go.tmpl", fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake)},
-		{"dto_response.go.tmpl", fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake)},
-		{"mapper.go.tmpl", fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake)},
-		{"migration_up.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, baseName)},
-		{"migration_down.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, baseName)},
+	var files []fileToGenerate
+	if mod.IsBusiness {
+		files = []fileToGenerate{
+			{"business_service.go.tmpl", fmt.Sprintf("internal/module/%s/service.go", mod.Snake)},
+			{"business_controller.go.tmpl", fmt.Sprintf("internal/module/%s/controller.go", mod.Snake)},
+			{"business_route.go.tmpl", fmt.Sprintf("internal/module/%s/route.go", mod.Snake)},
+			{"business_dto_request.go.tmpl", fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake)},
+			{"business_dto_response.go.tmpl", fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake)},
+		}
+	} else {
+		files = []fileToGenerate{
+			{"entity.go.tmpl", fmt.Sprintf("internal/module/%s/entity.go", mod.Snake)},
+			{"repository.go.tmpl", fmt.Sprintf("internal/module/%s/repository.go", mod.Snake)},
+			{"service.go.tmpl", fmt.Sprintf("internal/module/%s/service.go", mod.Snake)},
+			{"controller.go.tmpl", fmt.Sprintf("internal/module/%s/controller.go", mod.Snake)},
+			{"route.go.tmpl", fmt.Sprintf("internal/module/%s/route.go", mod.Snake)},
+			{"dto_request.go.tmpl", fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake)},
+			{"dto_response.go.tmpl", fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake)},
+			{"mapper.go.tmpl", fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake)},
+			{"migration_up.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, baseName)},
+			{"migration_down.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, baseName)},
+		}
 	}
 	for _, f := range files {
 		if dryRun {
@@ -289,7 +307,7 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	fmt.Println("\nModule berhasil dibuat dan di-inject otomatis ke app.go, route.go & interfaces.go!")
 
 	// Interactive auto-migrate prompt
-	if !runMigrate {
+	if !mod.IsBusiness && !runMigrate {
 		fmt.Print("\nApakah Anda ingin menjalankan migrasi ke database sekarang? (y/N): ")
 		var input string
 		fmt.Scanln(&input)
@@ -317,14 +335,18 @@ func runGofmtOnGen(mod ModuleNames) {
 		"internal/delivery/http/route/route.go",
 		"internal/repository/interfaces.go",
 		"internal/usecase/interfaces.go",
-		fmt.Sprintf("internal/module/%s/entity.go", mod.Snake),
 		fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake),
 		fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake),
-		fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake),
-		fmt.Sprintf("internal/module/%s/repository.go", mod.Snake),
 		fmt.Sprintf("internal/module/%s/service.go", mod.Snake),
 		fmt.Sprintf("internal/module/%s/controller.go", mod.Snake),
 		fmt.Sprintf("internal/module/%s/route.go", mod.Snake),
+	}
+	if !mod.IsBusiness {
+		files = append(files,
+			fmt.Sprintf("internal/module/%s/entity.go", mod.Snake),
+			fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake),
+			fmt.Sprintf("internal/module/%s/repository.go", mod.Snake),
+		)
 	}
 	for _, f := range files {
 		if _, err := os.Stat(f); err == nil {
@@ -412,28 +434,42 @@ func injectToAppGo(mod ModuleNames, dryRun bool) {
 	}
 
 	// Guard: skip if already injected
-	if strings.Contains(content, mod.Camel+"Repo := "+mod.Snake+".New"+mod.Pascal+"Repository") {
+	if !mod.IsBusiness && strings.Contains(content, mod.Camel+"Repo := "+mod.Snake+".New"+mod.Pascal+"Repository") {
 		fmt.Printf("⚠ %sRepository sudah ter-inject di app.go, dilewati.\n", mod.Pascal)
 		return
 	}
-
-	repoCode := fmt.Sprintf("%sRepo := %s.New%sRepository(config.Database)\n\t// @InjectRepo", mod.Camel, mod.Snake, mod.Pascal)
-	var usecaseCode string
-	if mod.IsTx {
-		usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, txManager, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
-	} else {
-		usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
+	if mod.IsBusiness && strings.Contains(content, mod.Camel+"Service := "+mod.Snake+".New"+mod.Pascal+"Service") {
+		fmt.Printf("⚠ %sService sudah ter-inject di app.go, dilewati.\n", mod.Pascal)
+		return
 	}
+
+	var usecaseCode string
+	if mod.IsBusiness {
+		if mod.IsTx {
+			usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, txManager)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal)
+		} else {
+			usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal)
+		}
+	} else {
+		repoCode := fmt.Sprintf("%sRepo := %s.New%sRepository(config.Database)\n\t// @InjectRepo", mod.Camel, mod.Snake, mod.Pascal)
+		content = strings.Replace(content, "// @InjectRepo", repoCode, 1)
+
+		if mod.IsTx {
+			usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, txManager, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
+		} else {
+			usecaseCode = fmt.Sprintf("%sService := %s.New%sService(config.Logger, %sRepo)\n\t// @InjectUsecase", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
+		}
+	}
+
 	controllerCode := fmt.Sprintf("%sController := %s.New%sController(%sService, config.Validator)\n\t// @InjectController", mod.Camel, mod.Snake, mod.Pascal, mod.Camel)
 	routeConfigCode := fmt.Sprintf("%s.SetupRoutes(api, %sController, authMiddleware)\n\t// @InjectRouteConfig", mod.Snake, mod.Camel)
 
-	content = strings.Replace(content, "// @InjectRepo", repoCode, 1)
 	content = strings.Replace(content, "// @InjectUsecase", usecaseCode, 1)
 	content = strings.Replace(content, "// @InjectController", controllerCode, 1)
 	content = strings.Replace(content, "// @InjectRouteConfig", routeConfigCode, 1)
 
 	// Inject import
-	importPath := fmt.Sprintf(`"github.com/mkhsnw/golang-starter-kit/internal/module/%s"`, mod.Snake)
+	importPath := fmt.Sprintf(`"%s/internal/module/%s"`, mod.ModuleName, mod.Snake)
 	if !strings.Contains(content, importPath) {
 		content = strings.Replace(content, "import (", "import (\n\t"+importPath, 1)
 	}

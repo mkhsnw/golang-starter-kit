@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
-	"github.com/mkhsnw/golang-starter-kit/internal/module/{{.Snake}}/dto"
-	{{ if .IsTx }}"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"{{ end }}
+	"{{.ModuleName}}/internal/foundation/exception"
+	"{{.ModuleName}}/internal/module/{{.Snake}}/dto"
+	{{ if .IsTx }}"{{.ModuleName}}/internal/foundation/database"{{ end }}
 	"github.com/sirupsen/logrus"
 )
 

@@ -9,6 +9,7 @@ import (
 // Manifest defines the structure for a module generation manifest file (e.g. product.yaml)
 type Manifest struct {
 	Name         string          `yaml:"name"`
+	Type         string          `yaml:"type"`
 	Table        string          `yaml:"table"`
 	Transactions bool            `yaml:"transactions"`
 	Tests        bool            `yaml:"tests"`

@@ -1,0 +1,45 @@
+package {{.Snake}}
+
+import (
+	"{{.ModuleName}}/internal/foundation/response"
+	"{{.ModuleName}}/internal/foundation/validator"
+	"{{.ModuleName}}/internal/module/{{.Snake}}/dto"
+	playvalidator "github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v3"
+)
+
+type {{.Pascal}}Controller struct {
+	Service   *{{.Pascal}}Service
+	Validator *playvalidator.Validate
+}
+
+func New{{.Pascal}}Controller(service *{{.Pascal}}Service, validate *playvalidator.Validate) *{{.Pascal}}Controller {
+	return &{{.Pascal}}Controller{
+		Service:   service,
+		Validator: validate,
+	}
+}
+
+// Process godoc
+// @Summary Process {{.Snake}}
+// @Description Process a new {{.Snake}} business logic
+// @Tags {{.Plural}}
+// @Accept json
+// @Produce json
+// @Param body body dto.ProcessRequest true "Process Request"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Router /{{.Plural}}/process [post]
+func (c *{{.Pascal}}Controller) Process(ctx fiber.Ctx) error {
+	var req dto.ProcessRequest
+	if err := validator.ParseAndValidate(ctx, c.Validator, &req); err != nil {
+		return err
+	}
+
+	res, err := c.Service.Process(ctx.Context(), &req)
+	if err != nil {
+		return err
+	}
+
+	return response.OK(res).Send(ctx)
+}

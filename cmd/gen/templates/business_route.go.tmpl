@@ -1,0 +1,12 @@
+package {{.Snake}}
+
+import "github.com/gofiber/fiber/v3"
+
+func SetupRoutes(router fiber.Router, controller *{{.Pascal}}Controller, authMiddleware fiber.Handler) {
+	group := router.Group("/{{.Plural}}")
+	
+	// Apply auth middleware if needed
+	// group.Use(authMiddleware)
+
+	group.Post("/process", controller.Process)
+}

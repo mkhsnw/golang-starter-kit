@@ -1,0 +1,46 @@
+package {{.Snake}}
+
+import (
+	"context"
+
+	"{{.ModuleName}}/internal/module/{{.Snake}}/dto"
+	{{ if .IsTx }}"{{.ModuleName}}/internal/foundation/database"{{ end }}
+	"github.com/sirupsen/logrus"
+)
+
+type {{.Pascal}}Service struct {
+	Log *logrus.Logger
+{{- if .IsTx }}
+	Tx  database.TransactionManager
+{{- end }}
+}
+
+func New{{.Pascal}}Service(log *logrus.Logger{{ if .IsTx }}, tx database.TransactionManager{{ end }}) *{{.Pascal}}Service {
+	return &{{.Pascal}}Service{
+		Log: log,
+{{- if .IsTx }}
+		Tx:  tx,
+{{- end }}
+	}
+}
+
+func (s *{{.Pascal}}Service) Process(ctx context.Context, req *dto.ProcessRequest) (*dto.ProcessResponse, error) {
+	s.Log.Info("Process {{.Snake}} started")
+
+	// TODO: Implement business logic here
+{{- if .IsTx }}
+	// Example transaction block:
+	// err := s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+	// 	// perform transactional queries here using txCtx
+	// 	return nil
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+{{- end }}
+
+	return &dto.ProcessResponse{
+		Success: true,
+		Message: "Processed successfully",
+	}, nil
+}
