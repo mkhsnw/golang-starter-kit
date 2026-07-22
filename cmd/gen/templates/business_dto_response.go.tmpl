@@ -1,5 +1,11 @@
 package dto
 
+{{ if .HasTime -}}
+import (
+	"time"
+)
+{{ end }}
+
 type ProcessResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`

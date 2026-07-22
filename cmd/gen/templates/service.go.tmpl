@@ -45,7 +45,7 @@ func (s *{{.Pascal}}Service) Create(ctx context.Context, req *dto.Create{{.Pasca
 	}
 
 {{- if .IsTx }}
-	err := s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+	err := s.Tx.Run(ctx, func(txCtx context.Context) error {
 		return s.Repo.Create(txCtx, entity)
 	})
 {{- else }}
@@ -81,7 +81,7 @@ func (s *{{.Pascal}}Service) Update(ctx context.Context, id string, req *dto.Upd
 {{- end }}
 
 {{- if .IsTx }}
-	err = s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+	err = s.Tx.Run(ctx, func(txCtx context.Context) error {
 		return s.Repo.Update(txCtx, entity)
 	})
 {{- else }}
@@ -103,7 +103,7 @@ func (s *{{.Pascal}}Service) Delete(ctx context.Context, id string) error {
 	}
 
 {{- if .IsTx }}
-	err = s.Tx.RunInTx(ctx, func(txCtx context.Context) error {
+	err = s.Tx.Run(ctx, func(txCtx context.Context) error {
 		return s.Repo.Delete(txCtx, entity)
 	})
 {{- else }}

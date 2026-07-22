@@ -69,9 +69,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	pascal := strings.ToUpper((name)[:1]) + (name)[1:]
-	snake := toSnakeCase(pascal)
-	camel := strings.ToLower((name)[:1]) + (name)[1:]
+	pascal := toPascalCase(name)
+	snake := toSnakeCase(name)
+	camel := strings.ToLower(string(pascal[0])) + pascal[1:]
 	plural := toPlural(snake)
 
 	if dryRun {
@@ -95,10 +95,13 @@ func main() {
 	// 2. Remove Migrations
 	removeMigrations(cwd, plural, dryRun)
 
-	// 3. Remove from App.go
+	// 3. Remove Factory & Seeder Files and Registry Entries
+	removeFactoryAndSeeder(cwd, pascal, snake, dryRun)
+
+	// 4. Remove from App.go
 	removeFromAppGo(cwd, pascal, camel, snake, dryRun)
 
-	// 4. Run gofmt to clean up injected files if not dry-run
+	// 5. Run gofmt to clean up injected files if not dry-run
 	if !dryRun {
 		runGofmt(cwd)
 		fmt.Println("✅ Modul berhasil dihapus, dibersihkan, dan diformat dengan gofmt!")
@@ -128,6 +131,61 @@ func removeMigrations(cwd, pluralSnake string, dryRun bool) {
 				fmt.Printf("✓ Terhapus: %s\n", path)
 			}
 		}
+	}
+}
+
+func removeFactoryAndSeeder(cwd, pascal, snake string, dryRun bool) {
+	// 1. Delete factory file
+	factoryPath := filepath.Join(cwd, "db", "factory", fmt.Sprintf("%s_factory.go", snake))
+	if _, err := os.Stat(factoryPath); err == nil {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would delete factory: %s\n", factoryPath)
+		} else {
+			if err := os.Remove(factoryPath); err == nil {
+				fmt.Printf("✓ Terhapus: %s\n", factoryPath)
+			}
+		}
+	}
+
+	// 2. Delete seeder file
+	seederPath := filepath.Join(cwd, "db", "seed", fmt.Sprintf("%s_seeder.go", snake))
+	if _, err := os.Stat(seederPath); err == nil {
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would delete seeder: %s\n", seederPath)
+		} else {
+			if err := os.Remove(seederPath); err == nil {
+				fmt.Printf("✓ Terhapus: %s\n", seederPath)
+			}
+		}
+	}
+
+	// 3. Remove registration from db/seed/seeder.go
+	seederRegPath := filepath.Join(cwd, "db", "seed", "seeder.go")
+	contentBytes, err := os.ReadFile(seederRegPath)
+	if err != nil {
+		return
+	}
+	content := string(contentBytes)
+
+	patternSeeder := fmt.Sprintf(`\s*registry\.Register\(New%sSeeder\(\)\)`, pascal)
+	reSeeder := regexp.MustCompile(patternSeeder)
+
+	if reSeeder.MatchString(content) {
+		lines := strings.Split(content, "\n")
+		var newLines []string
+		for _, line := range lines {
+			if reSeeder.MatchString(line) {
+				continue
+			}
+			newLines = append(newLines, line)
+		}
+		newContent := strings.Join(newLines, "\n")
+		if dryRun {
+			fmt.Printf("[DRY-RUN] Would un-register %sSeeder from db/seed/seeder.go\n", pascal)
+			return
+		}
+		_ = os.WriteFile(seederRegPath, []byte(newContent), 0644)
+		fmt.Println("✓ Un-registered seeder from db/seed/seeder.go")
 	}
 }
 
@@ -188,6 +246,7 @@ func removeFromAppGo(cwd, pascal, camel, snake string, dryRun bool) {
 func runGofmt(cwd string) {
 	files := []string{
 		filepath.Join(cwd, "internal", "config", "app.go"),
+		filepath.Join(cwd, "db", "seed", "seeder.go"),
 	}
 
 	for _, f := range files {
@@ -198,7 +257,33 @@ func runGofmt(cwd string) {
 	}
 }
 
-// -- Helpers --
+var commonInitialisms = map[string]string{
+	"Id":   "ID",
+	"Url":  "URL",
+	"Api":  "API",
+	"Json": "JSON",
+	"Html": "HTML",
+	"Xml":  "XML",
+	"Http": "HTTP",
+	"Uuid": "UUID",
+	"Uri":  "URI",
+	"Ip":   "IP",
+}
+
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i := range parts {
+		if len(parts[i]) > 0 {
+			word := strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
+			if upper, ok := commonInitialisms[word]; ok {
+				word = upper
+			}
+			parts[i] = word
+		}
+	}
+	return strings.Join(parts, "")
+}
+
 func toSnakeCase(s string) string {
 	var res []rune
 	for i, r := range s {
@@ -243,4 +328,3 @@ func getModuleName() string {
 	}
 	return "github.com/mkhsnw/golang-starter-kit"
 }
-

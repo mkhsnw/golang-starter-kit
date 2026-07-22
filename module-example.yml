@@ -1,18 +1,50 @@
-module: Category
-options:
-  transactional: false
-  generate_test: false
+# ==============================================================================
+# GOLANG STARTER KIT - MODULE GENERATOR MANIFEST EXAMPLES
+# ==============================================================================
+# File ini berisikan contoh manifes YAML untuk pembuatan modul menggunakan generator.
+# Simpan file manifest Anda di folder: manifests/<nama_modul>.yaml (contoh: manifests/product.yaml)
+# Dan jalankan perintah: task gen product
+
+# ------------------------------------------------------------------------------
+# CONTOH 1: Standard CRUD Module (Entity + Migration SQL + Repository + Usecase + Controller)
+# ------------------------------------------------------------------------------
+name: Product
+type: standard          # Opsi: standard (default) / business
+transactions: true      # Opsi: true/false. Menjalankan database writes dalam Database Transaction
+tests: false            # Opsi: true/false. Otomatis membuat file unit test
 fields:
   - name: title
     type: string
-    validate: "required,min=3,max=100"
-  - name: description
-    type: string
-    validate: "omitempty,max=500"
-  - name: is_active
-    type: bool
-    validate: "required"
+    required: true
+  - name: price
+    type: float64
+    required: true
+  - name: stock
+    type: int
+    required: true
+  - name: published_at
+    type: time.Time       # Tipe waktu (Bisa 'time' atau 'time.Time'). Auto import package time
+    required: false
   - name: status
     type: string
-    sql_type: "ENUM('PENDING', 'ACTIVE', 'INACTIVE')"
-    validate: "required"
+    sql_type: "ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED')"
+    required: true
+
+# ------------------------------------------------------------------------------
+# CONTOH 2: Business Action Module (Proses Bisnis Tanpa Entity / Migration Database Sendiri)
+# Catatan: `fields` pada modul bisnis dipetakan sebagai payload input/output API (DTO ProcessRequest & ProcessResponse).
+# ------------------------------------------------------------------------------
+# name: Checkout
+# type: business        # Modul untuk Business Action / Orchestration
+# transactions: true    # Meng-inject TransactionManager (s.Tx) untuk transaksi multi-repository
+# tests: false
+# fields:
+#   - name: cart_id
+#     type: string
+#     required: true
+#   - name: payment_method
+#     type: string
+#     required: true
+#   - name: processed_at
+#     type: time.Time
+#     required: false

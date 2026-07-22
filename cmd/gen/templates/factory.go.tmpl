@@ -1,0 +1,72 @@
+package factory
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/brianvoe/gofakeit/v6"
+	"github.com/google/uuid"
+	"{{.ModuleName}}/internal/module/{{.Snake}}"
+)
+
+type {{.Pascal}}Factory struct{}
+
+func New{{.Pascal}}Factory() *{{.Pascal}}Factory {
+	return &{{.Pascal}}Factory{}
+}
+
+func (f *{{.Pascal}}Factory) Build(overrides ...func(*{{.Snake}}.{{.Pascal}})) *{{.Snake}}.{{.Pascal}} {
+	item := &{{.Snake}}.{{.Pascal}}{
+		ID:        uuid.New().String(),
+{{- range .Fields }}
+{{- if eq .Type "string" }}
+{{- if hasSuffix .SnakeName "email" }}
+		{{ .PascalName }}: gofakeit.Email(),
+{{- else if or (hasSuffix .SnakeName "phone") (hasSuffix .SnakeName "mobile") }}
+		{{ .PascalName }}: gofakeit.Phone(),
+{{- else if or (hasSuffix .SnakeName "name") (hasSuffix .SnakeName "title") }}
+		{{ .PascalName }}: gofakeit.ProductName(),
+{{- else if or (hasSuffix .SnakeName "desc") (hasSuffix .SnakeName "description") (hasSuffix .SnakeName "note") }}
+		{{ .PascalName }}: gofakeit.Sentence(8),
+{{- else if eq .RawType "text" }}
+		{{ .PascalName }}: gofakeit.Paragraph(1, 2, 5, "\n"),
+{{- else }}
+		{{ .PascalName }}: fmt.Sprintf("Sample %s %s", "{{ .PascalName }}", gofakeit.DigitN(4)),
+{{- end }}
+{{- else if or (eq .Type "int") (eq .Type "int32") (eq .Type "int64") (eq .Type "uint") (eq .Type "uint32") (eq .Type "uint64") }}
+{{- if or (hasSuffix .SnakeName "price") (hasSuffix .SnakeName "amount") (hasSuffix .SnakeName "cost") }}
+		{{ .PascalName }}: {{ .Type }}(gofakeit.Number(10000, 500000)),
+{{- else }}
+		{{ .PascalName }}: {{ .Type }}(gofakeit.Number(1, 100)),
+{{- end }}
+{{- else if or (eq .Type "float32") (eq .Type "float64") }}
+		{{ .PascalName }}: {{ .Type }}(gofakeit.Price(10.0, 500.0)),
+{{- else if eq .Type "bool" }}
+		{{ .PascalName }}: gofakeit.Bool(),
+{{- else if eq .Type "time.Time" }}
+		{{ .PascalName }}: gofakeit.Date(),
+{{- end }}
+{{- end }}
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	for _, override := range overrides {
+		override(item)
+	}
+
+	return item
+}
+
+func (f *{{.Pascal}}Factory) BuildBatch(count int, overrides ...func(int, *{{.Snake}}.{{.Pascal}})) []*{{.Snake}}.{{.Pascal}} {
+	items := make([]*{{.Snake}}.{{.Pascal}}, 0, count)
+	for i := 1; i <= count; i++ {
+		idx := i
+		item := f.Build()
+		for _, override := range overrides {
+			override(idx, item)
+		}
+		items = append(items, item)
+	}
+	return items
+}

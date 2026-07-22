@@ -1,5 +1,11 @@
 package dto
 
+{{ if .HasTime -}}
+import (
+	"time"
+)
+{{ end }}
+
 type ProcessRequest struct {
 {{- range .Fields }}
 	{{.PascalName}} {{.Type}} `json:"{{.SnakeName}}" validate:"{{ if .Validate }}{{.Validate}}{{ else }}required{{ end }}"`

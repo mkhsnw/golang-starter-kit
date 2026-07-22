@@ -1,0 +1,40 @@
+package seed
+
+import (
+	"log"
+
+	"{{.ModuleName}}/db/factory"
+	"gorm.io/gorm"
+)
+
+type {{.Pascal}}Seeder struct {
+	factory *factory.{{.Pascal}}Factory
+}
+
+func New{{.Pascal}}Seeder() *{{.Pascal}}Seeder {
+	return &{{.Pascal}}Seeder{
+		factory: factory.New{{.Pascal}}Factory(),
+	}
+}
+
+func (s *{{.Pascal}}Seeder) Name() string {
+	return "{{.Pascal}}Seeder"
+}
+
+func (s *{{.Pascal}}Seeder) Seed(db *gorm.DB) error {
+	if err := TruncateTables(db, "{{.Plural}}"); err != nil {
+		return err
+	}
+
+	count := GetSeedCount(10)
+	items := s.factory.BuildBatch(count)
+	if err := db.Create(&items).Error; err != nil {
+		return err
+	}
+
+	log.Printf("-------------------------------------------\n")
+	log.Printf("📦 Seeded {{.Pascal}} (%d records)\n", len(items))
+	log.Printf("-------------------------------------------\n")
+
+	return nil
+}

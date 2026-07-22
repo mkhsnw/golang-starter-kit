@@ -22,46 +22,33 @@ USAGE:
   go run cmd/gen/main.go [flags]
   task gen [flags]
 
-REQUIRED FLAGS:
-  --name <PascalCase>   Module name in PascalCase (e.g. Product, OrderItem)
+COMMANDS & FLAGS:
+  task gen name=<Name>             Generate complete CRUD module + Migration + Seeder + Factory
+  task make-seeder name=<Name>     Generate Seeder (db/seed/<name>_seeder.go) and register in seeder.go
+  task make-factory name=<Name>    Generate Data Factory (db/factory/<name>_factory.go)
+  task rm name=<Name>              Remove a generated module
 
-OPTIONAL FLAGS:
+OPTIONAL FLAGS FOR GEN:
   --fields <list>       Comma-separated field definitions.
                         Format: name:go_type[:sql_type] or name:go_type? (nullable)
-                        Example 1: --fields "note:text?" (becomes NULL)
-                        Example 2: --fields "status:string:ENUM('IN','OUT')?" (becomes NULL)
-
-  --tx                  Generate the Usecase module to run database writes (Create,
-                        Update, Delete) inside a Transaction. Recommended for
-                        transactional data (e.g., Orders, Payments).
-
-  --force               Overwrite existing files without asking.
-
-  --dry-run             Preview all files that would be generated/modified
-                        without writing any changes to disk.
-
-  --migrate             Automatically run database migrations after generation
-                        without prompting.
-
-  --test                Generate test files (usecase_test.go, controller_test.go).
-                        Automatically enabled when --tx is used, since
-                        transactional logic is exactly what benefits most
-                        from tests.
-
-  --help, -h            Show this help message.
-
-SUPPORTED FIELD TYPES:
-  string, text, bool, []byte
-  int, int8, int16, int32, int64
-  uint, uint8, uint16, uint32, uint64
-  float32, float64, time.Time
+  --tx                  Generate Usecase with Database Transaction support
+  --force               Overwrite existing files without asking
+  --dry-run             Preview generated files without writing to disk
+  --migrate             Run database migrations automatically
+  --help, -h            Show this help message
 
 EXAMPLES:
   task gen name=Product fields="name:string,price:float64,stock:int"
-  task gen name=Invoice fields="amount:float64,note:text?" tx=true
-  task gen file=module-product.yml
-  task rm name=Product
+  task make-seeder name=Product
+  task make-factory name=Product
 `)
+}
+
+func cleanModuleNameArg(arg string) string {
+	if strings.HasPrefix(arg, "name=") {
+		return strings.TrimPrefix(arg, "name=")
+	}
+	return arg
 }
 
 func runModuleGenerator(args []string) {
@@ -76,8 +63,28 @@ func runModuleGenerator(args []string) {
 		os.Exit(0)
 	}
 
+	if arg == "--make-seeder" || arg == "make-seeder" {
+		if len(args) < 2 {
+			fmt.Println("Error: Masukkan nama modul. Contoh: task make-seeder name=Product")
+			os.Exit(1)
+		}
+		makeSeeder(cleanModuleNameArg(args[1]))
+		return
+	}
+
+	if arg == "--make-factory" || arg == "make-factory" {
+		if len(args) < 2 {
+			fmt.Println("Error: Masukkan nama modul. Contoh: task make-factory name=Product")
+			os.Exit(1)
+		}
+		makeFactory(cleanModuleNameArg(args[1]))
+		return
+	}
+
+	moduleArg := cleanModuleNameArg(arg)
+
 	// Assuming arg is the module name (e.g. product)
-	manifestPath := fmt.Sprintf("manifests/%s.yaml", strings.ToLower(arg))
+	manifestPath := fmt.Sprintf("manifests/%s.yaml", strings.ToLower(moduleArg))
 	manifest, err := LoadManifest(manifestPath)
 	if err != nil {
 		fmt.Printf("Gagal membaca manifest file %s: %v\n", manifestPath, err)
@@ -108,7 +115,7 @@ func runModuleGenerator(args []string) {
 		if sqlType == "" {
 			sqlType = goTypeToSQLType(f.Type)
 		}
-		
+
 		isForeignKey := strings.HasSuffix(f.Name, "_id")
 		refTable := ""
 		if isForeignKey {
@@ -118,8 +125,14 @@ func runModuleGenerator(args []string) {
 		goType := f.Type
 		if goType == "text" {
 			goType = "string"
+		} else if goType == "time" {
+			goType = "time.Time"
 		}
-		
+
+		if goType == "time.Time" {
+			mod.HasTime = true
+		}
+
 		mod.Fields = append(mod.Fields, Field{
 			Name:            f.Name,
 			Type:            goType,
@@ -159,14 +172,15 @@ type Field struct {
 }
 
 type ModuleNames struct {
-	Pascal        string // "Product"
-	Snake         string // "product"
-	Camel         string // "product"
-	Plural        string // "products"
-	Fields        []Field
-	IsTx          bool   // true if transaction enabled
-	ModuleName    string // e.g., "github.com/username/project"
-	IsBusiness    bool   // true if business module
+	Pascal     string // "Product"
+	Snake      string // "product"
+	Camel      string // "product"
+	Plural     string // "products"
+	Fields     []Field
+	IsTx       bool   // true if transaction enabled
+	ModuleName string // e.g., "github.com/username/project"
+	IsBusiness bool   // true if business module
+	HasTime    bool   // true if any field uses time.Time
 }
 
 func getModuleName() string {
@@ -183,8 +197,6 @@ func getModuleName() string {
 	}
 	return "github.com/mkhsnw/golang-starter-kit"
 }
-
-
 
 func pluralize(s string) string {
 	if strings.HasSuffix(s, "y") && len(s) > 1 {
@@ -278,6 +290,8 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 			{"dto_request.go.tmpl", fmt.Sprintf("internal/module/%s/dto/request.go", mod.Snake)},
 			{"dto_response.go.tmpl", fmt.Sprintf("internal/module/%s/dto/response.go", mod.Snake)},
 			{"mapper.go.tmpl", fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake)},
+			{"factory.go.tmpl", fmt.Sprintf("db/factory/%s_factory.go", mod.Snake)},
+			{"seeder.go.tmpl", fmt.Sprintf("db/seed/%s_seeder.go", mod.Snake)},
 			{"migration_up.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, baseName)},
 			{"migration_down.sql.tmpl", fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, baseName)},
 		}
@@ -295,6 +309,7 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	}
 
 	injectToAppGo(mod, dryRun)
+	injectSeederToRegistry(mod, dryRun)
 
 	if dryRun {
 		fmt.Println("\n[DRY-RUN] Module generation simulated successfully!")
@@ -346,6 +361,9 @@ func runGofmtOnGen(mod ModuleNames) {
 			fmt.Sprintf("internal/module/%s/entity.go", mod.Snake),
 			fmt.Sprintf("internal/module/%s/mapper.go", mod.Snake),
 			fmt.Sprintf("internal/module/%s/repository.go", mod.Snake),
+			fmt.Sprintf("db/factory/%s_factory.go", mod.Snake),
+			fmt.Sprintf("db/seed/%s_seeder.go", mod.Snake),
+			"db/seed/seeder.go",
 		)
 	}
 	for _, f := range files {
@@ -384,7 +402,7 @@ func goTypeToSQLType(goType string) string {
 		return "DOUBLE PRECISION"
 	case "bool":
 		return "TINYINT(1)"
-	case "time.Time":
+	case "time", "time.Time":
 		return "TIMESTAMP"
 	case "[]byte":
 		return "BLOB"
@@ -399,7 +417,7 @@ var supportedGoTypes = map[string]bool{
 	"int": true, "int8": true, "int16": true, "int32": true, "int64": true,
 	"uint": true, "uint8": true, "uint16": true, "uint32": true, "uint64": true,
 	"float32": true, "float64": true,
-	"bool": true, "time.Time": true, "[]byte": true,
+	"bool": true, "time": true, "time.Time": true, "[]byte": true,
 }
 
 func validateFields(fields []Field) {
@@ -412,7 +430,7 @@ func validateFields(fields []Field) {
 			fmt.Printf("❌ ERROR: Field '%s' memiliki tipe '%s' yang tidak didukung.\n", f.Name, rawType)
 			fmt.Println("   Tipe yang didukung: string, text, int, int8, int16, int32, int64,")
 			fmt.Println("                       uint, uint8, uint16, uint32, uint64,")
-			fmt.Println("                       float32, float64, bool, time.Time, []byte")
+			fmt.Println("                       float32, float64, bool, time, time.Time, []byte")
 			os.Exit(1)
 		}
 	}
@@ -482,6 +500,118 @@ func injectToAppGo(mod ModuleNames, dryRun bool) {
 	os.WriteFile(appPath, []byte(content), 0644)
 	fmt.Println("✓ Injected to app.go")
 }
+
+func injectSeederToRegistry(mod ModuleNames, dryRun bool) {
+	if mod.IsBusiness {
+		return
+	}
+	seederPath := "db/seed/seeder.go"
+	contentBytes, err := os.ReadFile(seederPath)
+	if err != nil {
+		return
+	}
+	content := string(contentBytes)
+	seederRegister := fmt.Sprintf("registry.Register(New%sSeeder())\n\t// @InjectSeeder", mod.Pascal)
+	if strings.Contains(content, fmt.Sprintf("New%sSeeder()", mod.Pascal)) {
+		return
+	}
+	if !strings.Contains(content, "// @InjectSeeder") {
+		fmt.Println("⚠️  WARNING: Marker // @InjectSeeder tidak ditemukan di db/seed/seeder.go!")
+		return
+	}
+	content = strings.Replace(content, "// @InjectSeeder", seederRegister, 1)
+
+	if dryRun {
+		fmt.Println("[DRY-RUN] Would inject seeder to db/seed/seeder.go")
+		return
+	}
+
+	if err := os.WriteFile(seederPath, []byte(content), 0644); err == nil {
+		fmt.Printf("✓ Injected %sSeeder to db/seed/seeder.go\n", mod.Pascal)
+	}
+}
+
+func getModuleNamesForName(name string) ModuleNames {
+	manifestPath := fmt.Sprintf("manifests/%s.yaml", strings.ToLower(name))
+	manifest, err := LoadManifest(manifestPath)
+	if err == nil && manifest.Name != "" {
+		mod := ModuleNames{
+			Pascal:     toPascalCase(manifest.Name),
+			Snake:      toSnakeCase(manifest.Name),
+			Camel:      strings.ToLower(string(manifest.Name[0])) + toPascalCase(manifest.Name)[1:],
+			Plural:     pluralize(toSnakeCase(manifest.Name)),
+			IsTx:       manifest.Transactions,
+			ModuleName: getModuleName(),
+			IsBusiness: manifest.Type == "business",
+		}
+		for _, f := range manifest.Fields {
+			if strings.ToLower(f.Name) == "id" || strings.ToLower(f.Name) == "created_at" || strings.ToLower(f.Name) == "updated_at" {
+				continue
+			}
+			goType := f.Type
+			if goType == "text" {
+				goType = "string"
+			} else if goType == "time" {
+				goType = "time.Time"
+			}
+			mod.Fields = append(mod.Fields, Field{
+				Name:       f.Name,
+				Type:       goType,
+				PascalName: toPascalCase(f.Name),
+				SnakeName:  f.Name,
+			})
+		}
+		return mod
+	}
+
+	pascal := toPascalCase(name)
+	snake := toSnakeCase(name)
+	return ModuleNames{
+		Pascal:     pascal,
+		Snake:      snake,
+		Camel:      strings.ToLower(string(pascal[0])) + pascal[1:],
+		Plural:     pluralize(snake),
+		ModuleName: getModuleName(),
+	}
+}
+
+func makeFactory(name string) {
+	mod := getModuleNamesForName(name)
+	f := fileToGenerate{
+		TemplateName: "factory.go.tmpl",
+		OutputPath:   fmt.Sprintf("db/factory/%s_factory.go", mod.Snake),
+	}
+	if err := renderFile(f, mod, true); err != nil {
+		fmt.Printf("❌ Gagal generate factory: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Created %s\n", f.OutputPath)
+	cmd := exec.Command("gofmt", "-w", f.OutputPath)
+	_ = cmd.Run()
+}
+
+func makeSeeder(name string) {
+	mod := getModuleNamesForName(name)
+	factoryPath := fmt.Sprintf("db/factory/%s_factory.go", mod.Snake)
+	if _, err := os.Stat(factoryPath); os.IsNotExist(err) {
+		makeFactory(name)
+	}
+
+	f := fileToGenerate{
+		TemplateName: "seeder.go.tmpl",
+		OutputPath:   fmt.Sprintf("db/seed/%s_seeder.go", mod.Snake),
+	}
+	if err := renderFile(f, mod, true); err != nil {
+		fmt.Printf("❌ Gagal generate seeder: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Created %s\n", f.OutputPath)
+	injectSeederToRegistry(mod, false)
+
+	cmd := exec.Command("gofmt", "-w", f.OutputPath, "db/seed/seeder.go")
+	_ = cmd.Run()
+}
+
 func renderFile(f fileToGenerate, mod ModuleNames, force bool) error {
 	// Jangan timpa file yang sudah ada kecuali flag --force diberikan
 	if _, err := os.Stat(f.OutputPath); err == nil && !force {
@@ -511,4 +641,3 @@ func renderFile(f fileToGenerate, mod ModuleNames, force bool) error {
 func main() {
 	runModuleGenerator(os.Args[1:])
 }
-

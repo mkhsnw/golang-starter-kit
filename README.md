@@ -56,11 +56,32 @@ Dengan arsitektur yang beku, *Generator* tidak akan pernah tertinggal.
 
 Generator di framework ini bukanlah sekadar alat copy-paste. Ia adalah "murid" yang patuh pada arsitektur. Generator digerakkan sepenuhnya oleh **Manifest** (file YAML), sehingga satu definisi manifest bisa menghasilkan struktur kode yang 100% konsisten dengan filosofi Foundation.
 
-### Menggunakan Manifest
+### 1. Tipe Modul (Standard vs Business)
 
-Buat file manifest YAML di folder `manifests/` (misalnya `manifests/product.yaml`):
+Framework mendukung 2 tipe modul yang dapat dikonfigurasi melalui manifest:
+
+* **Modul Standard (`type: standard` / Default)**:
+  * Digunakan untuk mengelola 1 tabel database (CRUD + Entity + GORM + Migration SQL + Repository + Usecase + Controller + DTO + Route).
+  * Field pada `fields` otomatis dipetakan ke **Kolom Migration SQL**, **Struct Entity GORM**, dan **DTO Request/Response**.
+* **Modul Bisnis (`type: business`)**:
+  * Digunakan untuk **Business Action / Orchestration** (misal: `Checkout`, `PaymentProcess`, `TransferFund`) yang **tidak menguasai 1 tabel database sendiri**.
+  * Tidak menghasilkan Entity maupun Migration SQL.
+  * Field pada `fields` dipetakan sebagai **payload input & output API (DTO `ProcessRequest` & `ProcessResponse`)**.
+
+### 2. Opsi Transaksi (Transactional Module)
+
+* Set `transactions: true` (atau `transactional: true`) di manifest.
+* Pada **Modul Standard**, semua aksi *database write* (`Create`, `Update`, `Delete`) di Usecase/Service otomatis dibungkus di dalam **Database Transaction** (`txManager`).
+* Pada **Modul Bisnis**, Service otomatis menerima `s.Tx` (`TransactionManager`) untuk melakukan transaksi *multi-repository* via `s.Tx.RunInTx(ctx, ...)`.
+
+---
+
+### Contoh Manifest YAML
+
+#### A. Standard CRUD Module (`manifests/product.yaml`)
 ```yaml
 name: Product
+type: standard
 transactions: true
 tests: false
 fields:
@@ -69,16 +90,40 @@ fields:
     required: true
   - name: price
     type: float64
+    required: true
+  - name: published_at
+    type: time.Time       # Menggunakan tipe waktu Go (Auto import package "time")
+    required: false
   - name: status
     type: string
     sql_type: "ENUM('ACTIVE', 'INACTIVE')"
     required: true
 ```
 
-Lalu jalankan generator:
+#### B. Business Action Module (`manifests/checkout.yaml`)
+```yaml
+name: Checkout
+type: business
+transactions: true        # Inject TxManager untuk multi-table transaction
+tests: false
+fields:
+  - name: cart_id
+    type: string
+    required: true
+  - name: payment_method
+    type: string
+    required: true
+  - name: processed_at
+    type: time.Time       # Tipe waktu untuk payload DTO request/response
+    required: false
+```
+
+Eksekusi generator:
 ```powershell
 task gen name=product
 ```
+
+---
 
 ### Tipe Data & SQL Mapping
 
@@ -88,13 +133,13 @@ task gen name=product
 | `bool` | `bool` | `TINYINT(1)` | Boolean (true/false). |
 | `int`, `int64`, dsb | `int` / `int64` | `INT`, `BIGINT`, dsb | Angka bulat. |
 | `float32`, `float64` | `float32`/`64` | `FLOAT` / `DOUBLE PRECISION`| Angka desimal. |
-| `time.Time` | `time.Time` | `TIMESTAMP` | Waktu spesifik. |
+| `time` / `time.Time` | `time.Time` | `TIMESTAMP` | Waktu spesifik. Otomatis mengimport package `"time"`. |
 
 **Aturan Khusus (Smart Generator):**
 1. **Custom SQL Type (Enum)**: Gunakan properti `sql_type` (seperti contoh di atas) untuk menimpa tipe SQL bawaan (misal untuk ENUM). Tipe di Go akan tetap menggunakan nilai `type`.
 2. **Foreign Key Otomatis**: Jika nama kolom berakhiran `_id` (misal `category_id`), SQL type-nya otomatis di-*override* menjadi `CHAR(36)` (UUID).
 3. **Nullable**: Jika `required: false` (atau tidak ditulis), kolom tidak akan memiliki constraint `NOT NULL`.
-4. **Field Bawaan**: Jangan tulis `id`, `created_at`, dan `updated_at` di manifest. Ketiga kolom ini wajib dan selalu otomatis di-generate oleh template (menggunakan UUID v7).
+4. **Field Bawaan (Modul Standard)**: Jangan tulis `id`, `created_at`, dan `updated_at` di manifest modul standard. Ketiga kolom ini wajib dan selalu otomatis di-generate oleh template (menggunakan UUID v7).
 
 ---
 

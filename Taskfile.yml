@@ -49,6 +49,20 @@ tasks:
     cmds:
       - go run ./cmd/gen "{{.name}}"
 
+  make-seeder:
+    desc: Generate a new database seeder for a table (e.g. task make-seeder name=product)
+    vars:
+      name: '{{.name | default ""}}'
+    cmds:
+      - go run ./cmd/gen --make-seeder "{{.name}}"
+
+  make-factory:
+    desc: Generate a new data factory for a table (e.g. task make-factory name=product)
+    vars:
+      name: '{{.name | default ""}}'
+    cmds:
+      - go run ./cmd/gen --make-factory "{{.name}}"
+
   rm:
     desc: Remove a generated CRUD module
     vars:
@@ -65,6 +79,13 @@ tasks:
       file: '{{.file | default ""}}'
     cmds:
       - go run cmd/new/main.go "{{.name}}"
+
+  seed:
+    desc: Populate database with test seed data (e.g. task seed count=50)
+    vars:
+      count: '{{.count | default ""}}'
+    cmds:
+      - go run cmd/seed/main.go {{if .count}}count={{.count}}{{end}}
 
   migrate-create:
     desc: Buat file migration baru (kosong), contoh - task migrate-create name=add_phone_to_users
@@ -113,14 +134,18 @@ tasks:
         echo "  task docs                      Generate swagger API documentation"
         echo ""
         echo "CODE GENERATION COMMANDS (Tanpa pemisah '--'):"
-        echo "  task gen name=product          Generate module CRUD dari file manifests/product.yaml"
-        echo ""
+        echo "  task gen name=product          Generate module CRUD + Migration + Seeder + Factory"
+        echo "  task make-seeder name=product  Generate Seeder (db/seed/product_seeder.go)"
+        echo "  task make-factory name=product Generate Factory (db/factory/product_factory.go)"
         echo "  task rm name=Product           Hapus module Product secara permanen"
         echo "                                 Tambahan opsi: dry=true"
         echo ""
-        echo "MIGRATION COMMANDS:"
+        echo "DATABASE & SEEDER COMMANDS:"
+        echo "  task seed                      Isi database dengan data seeder awal"
         echo "  task migrate-create name=xxx   Buat file SQL migration baru"
         echo "  task migrate-up                Terapkan semua skema migration baru"
         echo "  task migrate-down              Rollback 1 file migration terakhir"
         echo "  task migrate-version           Tampilkan versi database saat ini"
         echo "=========================================================================="
+
+
