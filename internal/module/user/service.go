@@ -1,18 +1,18 @@
 package user
 
 import (
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user/dto"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"strings"
-	"time"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/logger"
+	"github.com/mkhsnw/rel/internal/foundation/exception"
+	"github.com/mkhsnw/rel/internal/foundation/logger"
+	"github.com/mkhsnw/rel/internal/module/user/dto"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
+	"strings"
+	"time"
 )
 
 var (

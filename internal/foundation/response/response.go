@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
+	"github.com/mkhsnw/rel/internal/foundation/exception"
 )
 
 // Response wraps the standard API response structure.

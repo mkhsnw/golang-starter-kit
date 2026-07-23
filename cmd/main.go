@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/mkhsnw/golang-starter-kit/docs"
-	"github.com/mkhsnw/golang-starter-kit/internal/config"
+	_ "github.com/mkhsnw/rel/docs"
+	"github.com/mkhsnw/rel/internal/config"
 )
 
 // @title Golang Starter Kit API
@@ -59,6 +59,10 @@ func main() {
 	sqlDB, _ := db.DB()
 	if sqlDB != nil {
 		sqlDB.Close()
+	}
+
+	if redisStorage != nil {
+		_ = redisStorage.Close()
 	}
 
 	log.Info("Server exited gracefully")

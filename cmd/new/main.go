@@ -41,7 +41,7 @@ func main() {
 		printHelp()
 		os.Exit(0)
 	}
-	
+
 	if strings.HasPrefix(newModule, "name=") {
 		newModule = strings.TrimPrefix(newModule, "name=")
 	}
@@ -55,7 +55,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	targetDir := filepath.Join(filepath.Dir(cwd), projectName)
+	targetDir := filepath.Join(cwd, projectName)
 
 	if _, err := os.Stat(targetDir); !os.IsNotExist(err) {
 		fmt.Printf("Error: Target directory '%s' already exists.\n", targetDir)
@@ -80,7 +80,7 @@ func main() {
 
 	// 3. Rename module
 	fmt.Println("🔄 Renaming Go module...")
-	oldModule := "github.com/mkhsnw/golang-starter-kit"
+	oldModule := "github.com/mkhsnw/rel"
 	err = replaceInFiles(targetDir, oldModule, newModule)
 	if err != nil {
 		fmt.Printf("❌ Failed to rename module: %v\n", err)
@@ -164,7 +164,7 @@ func replaceInFiles(dir string, oldStr, newStr string) error {
 		}
 
 		ext := filepath.Ext(path)
-		if ext == ".go" || ext == ".mod" || ext == ".yml" || ext == ".yaml" || ext == ".md" {
+		if ext == ".go" || ext == ".mod" || ext == ".yml" || ext == ".yaml" || ext == ".md" || ext == ".tmpl" || ext == ".json" {
 			content, err := os.ReadFile(path)
 			if err != nil {
 				return err

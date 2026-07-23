@@ -3,7 +3,7 @@ package logger
 import (
 	"context"
 
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/appcontext" // package appcontext
+	"github.com/mkhsnw/rel/internal/foundation/appcontext" // package appcontext
 	"github.com/sirupsen/logrus"
 )
 

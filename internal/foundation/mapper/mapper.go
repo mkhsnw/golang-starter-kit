@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/response"
+	"github.com/mkhsnw/rel/internal/foundation/response"
 )
 
 // MapValidation maps validator.ValidationErrors to a list of field error maps.

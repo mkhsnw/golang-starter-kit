@@ -5,7 +5,7 @@ import (
 
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user"
+	"github.com/mkhsnw/rel/internal/module/user"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"gorm.io/gorm"
 )
 
@@ -51,8 +52,8 @@ func GetSeedCount(defaultCount int) int {
 	return defaultCount
 }
 
-// TruncateTables truncates specified tables with foreign key checks temporarily disabled
-func TruncateTables(db *gorm.DB, tables ...string) error {
+// ExecWithoutFK executes a callback function with foreign key checks temporarily disabled
+func ExecWithoutFK(db *gorm.DB, fn func() error) error {
 	if err := db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
 		return fmt.Errorf("failed to disable foreign key checks: %w", err)
 	}
@@ -61,17 +62,23 @@ func TruncateTables(db *gorm.DB, tables ...string) error {
 		_ = db.Exec("SET FOREIGN_KEY_CHECKS = 1")
 	}()
 
-	for _, table := range tables {
-		log.Printf("🧹 Truncating table: %s...\n", table)
-		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error; err != nil {
-			// Fallback to DELETE FROM if TRUNCATE fails (e.g. SQLite or specific constraints)
-			if errDel := db.Exec(fmt.Sprintf("DELETE FROM `%s`", table)).Error; errDel != nil {
-				return fmt.Errorf("failed to truncate/delete table %s: %w", table, errDel)
+	return fn()
+}
+
+// TruncateTables truncates specified tables with foreign key checks temporarily disabled
+func TruncateTables(db *gorm.DB, tables ...string) error {
+	return ExecWithoutFK(db, func() error {
+		for _, table := range tables {
+			log.Printf("🧹 Truncating table: %s...\n", table)
+			if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error; err != nil {
+				// Fallback to DELETE FROM if TRUNCATE fails (e.g. SQLite or specific constraints)
+				if errDel := db.Exec(fmt.Sprintf("DELETE FROM `%s`", table)).Error; errDel != nil {
+					return fmt.Errorf("failed to truncate/delete table %s: %w", table, errDel)
+				}
 			}
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // Execute is the main entry point to run all application seeders
@@ -94,4 +101,23 @@ func Execute(db *gorm.DB) error {
 	log.Println("🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY")
 	log.Println("===========================================")
 	return nil
+}
+
+// GetExistingIDs fetches all existing string IDs from a master table
+func GetExistingIDs(db *gorm.DB, tableName string) ([]string, error) {
+	var ids []string
+	if err := db.Table(tableName).Pluck("id", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// RandomChoice returns a random element from a non-empty slice, or zero value if empty
+func RandomChoice[T any](items []T) T {
+	var zero T
+	if len(items) == 0 {
+		return zero
+	}
+	idx := gofakeit.Number(0, len(items)-1)
+	return items[idx]
 }

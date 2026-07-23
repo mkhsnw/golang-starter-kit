@@ -9,7 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/mkhsnw/golang-starter-kit/internal/config"
+	"github.com/mkhsnw/rel/internal/config"
 )
 
 func main() {
@@ -72,6 +72,22 @@ func main() {
 			log.Fatalf("Failed to force migration: %v", err)
 		}
 		log.Printf("Force migration to version %d success\n", v)
+	case "fresh":
+		log.Println("🧹 Dropping all database tables...")
+		if err := m.Drop(); err != nil && err != migrate.ErrNoChange {
+			log.Fatalf("Failed to drop database: %v", err)
+		}
+		log.Println("🚀 Re-applying all migrations...")
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatalf("Failed to run migrate up: %v", err)
+		}
+		log.Println("✅ Database fresh migration complete!")
+	case "drop":
+		log.Println("🧹 Dropping all database tables...")
+		if err := m.Drop(); err != nil && err != migrate.ErrNoChange {
+			log.Fatalf("Failed to drop database: %v", err)
+		}
+		log.Println("✅ Database drop complete!")
 	default:
 		log.Fatalf("Unknown command: %s", cmd)
 	}

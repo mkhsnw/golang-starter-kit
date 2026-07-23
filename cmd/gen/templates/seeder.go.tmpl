@@ -4,6 +4,9 @@ import (
 	"log"
 
 	"{{.ModuleName}}/db/factory"
+{{- if .HasForeignKey }}
+	"{{.ModuleName}}/internal/module/{{.Snake}}"
+{{- end }}
 	"gorm.io/gorm"
 )
 
@@ -26,9 +29,27 @@ func (s *{{.Pascal}}Seeder) Seed(db *gorm.DB) error {
 		return err
 	}
 
+{{- range .Fields }}
+{{- if .IsForeignKey }}
+	// Fetch existing master IDs from table '{{.ReferencedTable}}'
+	{{.SnakeName}}s, _ := GetExistingIDs(db, "{{.ReferencedTable}}")
+{{- end }}
+{{- end }}
+
 	count := GetSeedCount(10)
-	items := s.factory.BuildBatch(count)
-	if err := db.Create(&items).Error; err != nil {
+	items := s.factory.BuildBatch(count{{- if .HasForeignKey }}, func(idx int, item *{{.Snake}}.{{.Pascal}}) {
+{{- range .Fields }}
+{{- if .IsForeignKey }}
+		if len({{.SnakeName}}s) > 0 {
+			item.{{.PascalName}} = RandomChoice({{.SnakeName}}s)
+		}
+{{- end }}
+{{- end }}
+	}{{- end }})
+
+	if err := ExecWithoutFK(db, func() error {
+		return db.Create(&items).Error
+	}); err != nil {
 		return err
 	}
 
@@ -38,3 +59,4 @@ func (s *{{.Pascal}}Seeder) Seed(db *gorm.DB) error {
 
 	return nil
 }
+

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/appcontext" // package appcontext
+	"github.com/mkhsnw/rel/internal/foundation/appcontext" // package appcontext
 )
 
 // RequestContextMiddleware initializes the RequestContext and injects it into Fiber's UserContext.

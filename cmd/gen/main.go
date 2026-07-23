@@ -26,6 +26,7 @@ COMMANDS & FLAGS:
   task gen name=<Name>             Generate complete CRUD module + Migration + Seeder + Factory
   task make-seeder name=<Name>     Generate Seeder (db/seed/<name>_seeder.go) and register in seeder.go
   task make-factory name=<Name>    Generate Data Factory (db/factory/<name>_factory.go)
+  task make-migration name=<Name>  Generate custom SQL migration files (.up.sql & .down.sql)
   task rm name=<Name>              Remove a generated module
 
 OPTIONAL FLAGS FOR GEN:
@@ -41,6 +42,7 @@ EXAMPLES:
   task gen name=Product fields="name:string,price:float64,stock:int"
   task make-seeder name=Product
   task make-factory name=Product
+  task make-migration name=change_publish_year_type
 `)
 }
 
@@ -52,9 +54,9 @@ func cleanModuleNameArg(arg string) string {
 }
 
 func runModuleGenerator(args []string) {
-	if len(args) == 0 {
-		fmt.Println("Error: Masukkan nama modul. Contoh: task gen product")
-		os.Exit(1)
+	if len(args) == 0 || args[0] == "--interactive" || args[0] == "-i" {
+		moduleName, _ := runInteractiveWizard()
+		args = []string{moduleName}
 	}
 
 	arg := args[0]
@@ -78,6 +80,15 @@ func runModuleGenerator(args []string) {
 			os.Exit(1)
 		}
 		makeFactory(cleanModuleNameArg(args[1]))
+		return
+	}
+
+	if arg == "--make-migration" || arg == "make-migration" || arg == "--migrate-create" || arg == "migrate-create" {
+		if len(args) < 2 {
+			fmt.Println("Error: Masukkan nama migrasi. Contoh: task make-migration name=add_phone_to_users")
+			os.Exit(1)
+		}
+		makeMigration(cleanModuleNameArg(args[1]))
 		return
 	}
 
@@ -133,6 +144,10 @@ func runModuleGenerator(args []string) {
 			mod.HasTime = true
 		}
 
+		if isForeignKey {
+			mod.HasForeignKey = true
+		}
+
 		mod.Fields = append(mod.Fields, Field{
 			Name:            f.Name,
 			Type:            goType,
@@ -147,8 +162,7 @@ func runModuleGenerator(args []string) {
 		})
 	}
 
-	// For manifest mode, we run migrations only if it's not a business module
-	generateModule(mod, true, false, !mod.IsBusiness, manifest.Tests)
+	generateModule(mod, true, false, false, manifest.Tests)
 }
 
 func buildValidatorTag(f ManifestField) string {
@@ -172,21 +186,22 @@ type Field struct {
 }
 
 type ModuleNames struct {
-	Pascal     string // "Product"
-	Snake      string // "product"
-	Camel      string // "product"
-	Plural     string // "products"
-	Fields     []Field
-	IsTx       bool   // true if transaction enabled
-	ModuleName string // e.g., "github.com/username/project"
-	IsBusiness bool   // true if business module
-	HasTime    bool   // true if any field uses time.Time
+	Pascal        string // "Product"
+	Snake         string // "product"
+	Camel         string // "product"
+	Plural        string // "products"
+	Fields        []Field
+	IsTx          bool   // true if transaction enabled
+	ModuleName    string // e.g., "github.com/username/project"
+	IsBusiness    bool   // true if business module
+	HasTime       bool   // true if any field uses time.Time
+	HasForeignKey bool   // true if any field is a foreign key
 }
 
 func getModuleName() string {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
-		return "github.com/mkhsnw/golang-starter-kit"
+		return "github.com/mkhsnw/rel"
 	}
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -195,7 +210,7 @@ func getModuleName() string {
 			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
-	return "github.com/mkhsnw/golang-starter-kit"
+	return "github.com/mkhsnw/rel"
 }
 
 func pluralize(s string) string {
@@ -319,28 +334,14 @@ func generateModule(mod ModuleNames, force, dryRun, runMigrate, genTest bool) {
 	// Run gofmt to format generated/injected Go files
 	runGofmtOnGen(mod)
 
-	fmt.Println("\nModule berhasil dibuat dan di-inject otomatis ke app.go, route.go & interfaces.go!")
-
-	// Interactive auto-migrate prompt
-	if !mod.IsBusiness && !runMigrate {
-		fmt.Print("\nApakah Anda ingin menjalankan migrasi ke database sekarang? (y/N): ")
-		var input string
-		fmt.Scanln(&input)
-		if strings.ToLower(strings.TrimSpace(input)) == "y" {
-			runMigrate = true
-		}
-	}
-
-	if runMigrate {
-		fmt.Println("🚀 Menjalankan migrasi database (go run cmd/migrate/main.go up)...")
-		cmd := exec.Command("go", "run", "cmd/migrate/main.go", "up")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("❌ Gagal menjalankan migrasi: %v\n", err)
-		} else {
-			fmt.Println("✅ Migrasi database berhasil diterapkan!")
-		}
+	fmt.Printf("\n✨ Modul '%s' berhasil dibuat dan di-inject otomatis!\n", mod.Pascal)
+	fmt.Println("📌 Langkah Selanjutnya:")
+	if !mod.IsBusiness {
+		fmt.Printf("   1. Peninjauan SQL : Periksa file migrasi di db/migration/%s_%s.up.sql\n", timestamp, baseName)
+		fmt.Println("   2. Jalankan Migrasi: task migrate-up")
+		fmt.Println("   3. Isi Data Dummy : task seed")
+	} else {
+		fmt.Println("   1. Modul bisnis siap digunakan di internal/config/app.go")
 	}
 }
 
@@ -554,11 +555,19 @@ func getModuleNamesForName(name string) ModuleNames {
 			} else if goType == "time" {
 				goType = "time.Time"
 			}
+			isForeignKey := strings.HasSuffix(f.Name, "_id")
+			refTable := ""
+			if isForeignKey {
+				refTable = pluralize(strings.TrimSuffix(f.Name, "_id"))
+				mod.HasForeignKey = true
+			}
 			mod.Fields = append(mod.Fields, Field{
-				Name:       f.Name,
-				Type:       goType,
-				PascalName: toPascalCase(f.Name),
-				SnakeName:  f.Name,
+				Name:            f.Name,
+				Type:            goType,
+				PascalName:      toPascalCase(f.Name),
+				SnakeName:       f.Name,
+				IsForeignKey:    isForeignKey,
+				ReferencedTable: refTable,
 			})
 		}
 		return mod
@@ -636,6 +645,54 @@ func renderFile(f fileToGenerate, mod ModuleNames, force bool) error {
 	defer out.Close()
 
 	return tmpl.Execute(out, mod)
+}
+
+type MigrationData struct {
+	Name      string
+	Timestamp string
+}
+
+func makeMigration(name string) {
+	snakeName := toSnakeCase(name)
+	timestamp := time.Now().Format("20060102150405")
+	data := MigrationData{
+		Name:      snakeName,
+		Timestamp: timestamp,
+	}
+
+	upPath := fmt.Sprintf("db/migration/%s_%s.up.sql", timestamp, snakeName)
+	downPath := fmt.Sprintf("db/migration/%s_%s.down.sql", timestamp, snakeName)
+
+	if err := renderCustomTemplate("migration_custom_up.sql.tmpl", upPath, data); err != nil {
+		fmt.Printf("❌ Gagal generate up migration: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Created %s\n", upPath)
+
+	if err := renderCustomTemplate("migration_custom_down.sql.tmpl", downPath, data); err != nil {
+		fmt.Printf("❌ Gagal generate down migration: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Created %s\n", downPath)
+}
+
+func renderCustomTemplate(tmplName, outputPath string, data interface{}) error {
+	tmpl, err := template.New(tmplName).ParseFS(templateFS, "templates/"+tmplName)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	return tmpl.Execute(out, data)
 }
 
 func main() {

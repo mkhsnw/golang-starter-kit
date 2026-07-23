@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mkhsnw/golang-starter-kit/db/seed"
-	"github.com/mkhsnw/golang-starter-kit/internal/config"
+	"github.com/mkhsnw/rel/db/seed"
+	"github.com/mkhsnw/rel/internal/config"
 )
 
 func main() {

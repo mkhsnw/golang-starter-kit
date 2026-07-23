@@ -4,10 +4,10 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/mkhsnw/golang-starter-kit/internal/middleware"
+	"github.com/mkhsnw/rel/internal/middleware"
 
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user"
+	"github.com/mkhsnw/rel/internal/foundation/database"
+	"github.com/mkhsnw/rel/internal/module/user"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"

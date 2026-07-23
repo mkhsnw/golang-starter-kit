@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
-	appcontext "github.com/mkhsnw/golang-starter-kit/internal/foundation/appcontext"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
+	appcontext "github.com/mkhsnw/rel/internal/foundation/appcontext"
+	"github.com/mkhsnw/rel/internal/foundation/exception"
 )
 
 func NewAuthMiddleware(jwtSecret string) fiber.Handler {

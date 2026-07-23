@@ -317,7 +317,7 @@ func toPlural(s string) string {
 func getModuleName() string {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
-		return "github.com/mkhsnw/golang-starter-kit"
+		return "github.com/mkhsnw/rel"
 	}
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -326,5 +326,5 @@ func getModuleName() string {
 			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
-	return "github.com/mkhsnw/golang-starter-kit"
+	return "github.com/mkhsnw/rel"
 }

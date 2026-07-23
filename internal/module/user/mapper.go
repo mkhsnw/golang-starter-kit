@@ -1,8 +1,8 @@
 package user
 
 import (
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user/dto"
-		)
+	"github.com/mkhsnw/rel/internal/module/user/dto"
+)
 
 func ToUserResponse(user *User) *dto.UserResponse {
 	if user == nil {

@@ -1,16 +1,14 @@
 package {{.Snake}}
 
 import (
-	"time"
+	"{{.ModuleName}}/internal/foundation/database"
 )
 
 type {{.Pascal}} struct {
-	ID        string    `gorm:"primaryKey;column:id;type:varchar(36)"`
+	database.BaseEntity
 {{- range .Fields }}
-	{{ .PascalName }} {{ .Type }} `gorm:"column:{{ .SnakeName }};type:{{ .RawType }};not null"`
+	{{ .PascalName }} {{ .Type }} `gorm:"column:{{ .SnakeName }};type:{{ .SQLType }}{{ if not .Nullable }};not null{{ end }}"`
 {{- end }}
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 func (m *{{.Pascal}}) TableName() string {

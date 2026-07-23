@@ -38,7 +38,7 @@ func New{{.Pascal}}Service(log *logrus.Logger{{ if .IsTx }}, tx database.Transac
 
 func (s *{{.Pascal}}Service) Create(ctx context.Context, req *dto.Create{{.Pascal}}Request) (*dto.{{.Pascal}}Response, error) {
 	entity := &{{.Pascal}}{
-		ID:        uuid.NewString(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 {{- range .Fields }}
 		{{.PascalName}}: req.{{.PascalName}},
 {{- end }}

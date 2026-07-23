@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/database"
+	"github.com/mkhsnw/rel/internal/foundation/database"
 	"gorm.io/gorm"
 )
 

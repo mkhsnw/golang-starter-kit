@@ -1,0 +1,47 @@
+# ==============================================================================
+# 📋 RelGo Module Manifest Example (manifests/example.yaml)
+# ==============================================================================
+# File ini adalah contoh blueprint deklaratif untuk generator RelGo (rel gen).
+#
+# TIPE MODUL:
+# 1. 'standard' : Modul CRUD lengkap (Entity + Repository + Service + Controller + DTO + Route + SQL Migration + Seeder + Factory).
+# 2. 'business' : Modul Orchestration/Action (hanya Service + Controller + DTO + Route, tanpa tabel DB sendiri).
+#
+# CARA PENGGUNAAN:
+#   rel gen example
+#   task gen name=example
+# ==============================================================================
+
+name: Example
+type: standard          # Options: 'standard' (CRUD 1 tabel) atau 'business' (orchestration)
+transactions: true      # Set true untuk mengaktifkan TransactionManager (atomic write)
+
+fields:
+  - name: title
+    type: string
+    required: true
+
+  - name: sku
+    type: string
+    required: true
+
+  - name: price
+    type: float64
+    required: true
+
+  - name: stock
+    type: int
+    required: true
+
+  - name: description
+    type: string
+    nullable: true      # Kolom opsional (dapat bernilai NULL di SQL)
+
+  - name: status
+    type: string
+    sql_type: "ENUM('DRAFT', 'ACTIVE', 'INACTIVE')" # Menimpa tipe SQL default
+    required: true
+
+  - name: category_id
+    type: string
+    required: true      # Otomatis dikenali sebagai Foreign Key (UUID CHAR(36))

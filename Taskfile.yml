@@ -22,6 +22,16 @@ tasks:
     cmds:
       - golangci-lint run
 
+  lint-arch:
+    desc: Run Architecture Linter to enforce clean architecture rules
+    cmds:
+      - go run ./cmd/lint
+
+  doctor:
+    desc: Run Starter Kit Doctor environment diagnostic check
+    cmds:
+      - go run ./cmd/doctor
+
   fmt:
     desc: Format code
     cmds:
@@ -63,6 +73,13 @@ tasks:
     cmds:
       - go run ./cmd/gen --make-factory "{{.name}}"
 
+  make-migration:
+    desc: Buat file SQL migration baru (.up.sql dan .down.sql), contoh - task make-migration name=change_publish_year_type
+    vars:
+      name: '{{.name | default ""}}'
+    cmds:
+      - go run ./cmd/gen --make-migration "{{.name}}"
+
   rm:
     desc: Remove a generated CRUD module
     vars:
@@ -88,12 +105,12 @@ tasks:
       - go run cmd/seed/main.go {{if .count}}count={{.count}}{{end}}
 
   migrate-create:
-    desc: Buat file migration baru (kosong), contoh - task migrate-create name=add_phone_to_users
+    desc: Buat file SQL migration baru (.up.sql dan .down.sql), contoh - task migrate-create name=add_phone_to_users
     vars:
       name: '{{.name | default ""}}'
       file: '{{.file | default ""}}'
     cmds:
-      - migrate create -ext sql -dir db/migration -seq "{{.name}}"
+      - go run ./cmd/gen --make-migration "{{.name}}"
 
   migrate-up:
     desc: Jalankan semua migration yang belum diterapkan
@@ -117,6 +134,12 @@ tasks:
     cmds:
       - go run cmd/migrate/main.go force "{{.version}}"
 
+  migrate-fresh:
+    desc: Drop semua tabel, re-apply semua migration dari awal, dan jalankan seeder
+    cmds:
+      - go run cmd/migrate/main.go fresh
+      - go run cmd/seed/main.go
+
   help:
     desc: Tampilkan dokumentasi lengkap untuk semua perintah task runner
     cmds:
@@ -133,19 +156,20 @@ tasks:
         echo "  task fmt                       Format kode Go agar rapi"
         echo "  task docs                      Generate swagger API documentation"
         echo ""
-        echo "CODE GENERATION COMMANDS (Tanpa pemisah '--'):"
+        echo "CODE GENERATION COMMANDS:"
         echo "  task gen name=product          Generate module CRUD + Migration + Seeder + Factory"
+        echo "  task make-migration name=xxx   Buat file SQL migration baru"
         echo "  task make-seeder name=product  Generate Seeder (db/seed/product_seeder.go)"
         echo "  task make-factory name=product Generate Factory (db/factory/product_factory.go)"
         echo "  task rm name=Product           Hapus module Product secara permanen"
-        echo "                                 Tambahan opsi: dry=true"
         echo ""
         echo "DATABASE & SEEDER COMMANDS:"
-        echo "  task seed                      Isi database dengan data seeder awal"
-        echo "  task migrate-create name=xxx   Buat file SQL migration baru"
         echo "  task migrate-up                Terapkan semua skema migration baru"
         echo "  task migrate-down              Rollback 1 file migration terakhir"
+        echo "  task migrate-fresh             Reset DB, re-apply migrasi dari awal & seed"
         echo "  task migrate-version           Tampilkan versi database saat ini"
+        echo "  task seed                      Isi database dengan data seeder awal"
         echo "=========================================================================="
+
 
 

@@ -1,3 +1,5 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
 CREATE TABLE {{.Plural}} (
     id VARCHAR(36) PRIMARY KEY,
 {{- range .Fields}}
@@ -17,3 +19,6 @@ CREATE TABLE {{.Plural}} (
 CREATE INDEX idx_{{$.Plural}}_{{.SnakeName}} ON {{$.Plural}}({{.SnakeName}});
 {{- end}}
 {{- end}}
+
+SET FOREIGN_KEY_CHECKS = 1;
+

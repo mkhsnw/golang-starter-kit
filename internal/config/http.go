@@ -15,10 +15,11 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 	"github.com/gofiber/storage/redis/v3"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/exception"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/mapper"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/response"
-	"github.com/mkhsnw/golang-starter-kit/internal/middleware"
+	"github.com/mkhsnw/rel/internal/foundation/exception"
+	"github.com/mkhsnw/rel/internal/foundation/health"
+	"github.com/mkhsnw/rel/internal/foundation/mapper"
+	"github.com/mkhsnw/rel/internal/foundation/response"
+	"github.com/mkhsnw/rel/internal/middleware"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -79,22 +80,15 @@ func NewHTTP(config *Config, db *gorm.DB, log *logrus.Logger, redisStorage *redi
 		Expiration: 1 * time.Minute,
 		Storage:    redisStorage,
 		Next: func(ctx fiber.Ctx) bool {
-			// Skip limiter for swagger docs
-			return strings.HasPrefix(ctx.Path(), "/api/v1/docs")
+			// Skip limiter for swagger docs and health probes
+			path := ctx.Path()
+			return strings.HasPrefix(path, "/api/v1/docs") || path == "/health" || path == "/ready" || path == "/live"
 		},
 	}))
 
-	// Health check yang benar-benar cek koneksi DB
-	app.Get("/health", func(ctx fiber.Ctx) error {
-		sqlDB, err := db.DB()
-		if err != nil || sqlDB.Ping() != nil {
-			return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"status": "error",
-				"detail": "database unreachable",
-			})
-		}
-		return ctx.JSON(fiber.Map{"status": "ok"})
-	})
+	// Setup Health & Diagnostics Endpoints (/health, /ready, /live)
+	healthHandler := health.NewHealthHandler(db, redisStorage)
+	health.SetupRoutes(app, healthHandler)
 
 	return app
 }

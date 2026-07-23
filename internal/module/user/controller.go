@@ -1,12 +1,12 @@
 package user
 
 import (
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user/dto"
 	playvalidator "github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
-		"github.com/mkhsnw/golang-starter-kit/internal/foundation/response"
-		"github.com/mkhsnw/golang-starter-kit/internal/foundation/validator"
-	"github.com/mkhsnw/golang-starter-kit/internal/foundation/appcontext"
+	"github.com/mkhsnw/rel/internal/foundation/appcontext"
+	"github.com/mkhsnw/rel/internal/foundation/response"
+	"github.com/mkhsnw/rel/internal/foundation/validator"
+	"github.com/mkhsnw/rel/internal/module/user/dto"
 )
 
 type UserController struct {

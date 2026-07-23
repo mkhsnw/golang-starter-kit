@@ -1,237 +1,256 @@
-# 🚀 Golang Starter Kit: An Opinionated Framework
+# 🚂 RelGo Framework: Opinionated Go Backend Framework
 
-Repositori ini bukan lagi sekadar "starter kit" atau kumpulan boilerplate. Ini adalah **opinionated framework** yang dirancang untuk mencegah developer melakukan kesalahan arsitektural. Fokus utamanya adalah **konsistensi**, **kemudahan maintain**, dan **developer experience** yang superior.
+**RelGo** (rel) adalah **opinionated backend framework** untuk Go (Golang) yang dibangun di atas **Fiber v3**, **GORM**, dan **Viper**. Filosofinya seperti **Rel Kereta Api**: developer tinggal berjalan di atas jalur rel yang sudah disiapkan, sehingga dipastikan sampai ke tujuan (*production-ready API*) dengan cepat tanpa resiko anjlok (*architectural erosion*).
+
+> [!IMPORTANT]
+> **📜 Kontrak Arsitektur Framework:**
+> Dengan **RelGo**, untuk membuat sebuah modul baru, developer idealnya **hanya perlu menyentuh 3 area**:
+> 1. 📦 **Entity / Model** *(Definisi domain data & kolom)*
+> 2. 🗄️ **Repository Query** *(Query spesifik database)*
+> 3. 🧠 **Business Rule** *(Logika bisnis di Service layer)*
+>
+> Semua sisanya (*HTTP routing, format response, DTO request/response, mapper, validasi input dasar, logging, dependency wiring, dan dokumentasi Swagger*) ditangani secara otomatis oleh **Foundation** dan **rel CLI Generator**.
+
+---
+
+## 📊 Compatibility Matrix
+
+| Komponen | Versi Teruji & Didukung | Keterangan |
+| :--- | :--- | :--- |
+| **Go Compiler** | `Go 1.25.0+` | Minimal versi Go yang dibutuhkan |
+| **Web Engine** | `Fiber v3 (v3.4.0)` | High-performance Fasthttp web engine |
+| **ORM / Database** | `GORM v1.31+` / `MySQL 8.0` | Driver MySQL / MariaDB |
+| **Cache & Storage** | `Redis v7.0` | Storage rate limiter & caching |
+| **Config Loader** | `Viper v1.21` | Fail-fast JSON/Env configuration |
+| **API Docs** | `Swagger / Swaggo v1.16` | OpenAPI 2.0 automatic documentation |
+
+---
+
+## 🗺️ Public Roadmap
+
+```text
+v1.0 (Core Frozen & Production Ready) - SELESAI ✅
+ ├── Foundation Architecture (Response, Exception, Mapper, Validator, Context)
+ ├── BaseEntity & Query Filter (Paginasi, Search & Sort)
+ ├── Health Checks (/health, /ready, /live) & Graceful Shutdown
+ ├── Docker Compose Setup (MySQL 8 & Redis 7)
+ ├── Architecture Linter (go run ./cmd/lint)
+ ├── Starter Kit Doctor (go run ./cmd/doctor)
+ └── Unified CLI Tooling (rel) & Golden Snapshot Testing
+
+v1.1 (CLI Distribution & DX Polish) - NEXT 🚀
+ ├── Global Binary Installer: `go install github.com/mkhsnw/rel@latest`
+ ├── Pretty Colorized Terminal Scaffolding (`rel new <project-name>`)
+ └── Multi-Domain Example Repositories (`examples/library-api`)
+
+v1.2 (Interactive Engine & Manifest Plugins)
+ ├── Interactive Terminal Wizard Enhancements
+ └── Custom Generator Template Overrides
+```
+
+---
 
 ## 📖 Daftar Isi
 
-1. [Filosofi Arsitektur (The "Why")](#-filosofi-arsitektur-the-why)
-2. [Arsitektur Beku (Frozen Architecture)](#-arsitektur-beku-frozen-architecture)
-3. [Generator: Murid dari Foundation](#-generator-murid-dari-foundation)
-4. [Apa yang Kamu Dapat](#-apa-yang-kamu-dapat)
-5. [Memulai Project Baru](#-memulai-project-baru)
-6. [Struktur Konfigurasi](#️-struktur-konfigurasi)
-7. [Format Response API](#-format-response-api)
-8. [Testing & Mocks](#-testing--mocks)
-9. [Semua Perintah Task](#-semua-perintah-task)
+1. [Fitur Utama & Keunggulan](#-fitur-utama--keunggulan)
+2. [Instalasi & Penggunaan CLI (`rel`)](#-instalasi--penggunaan-cli-rel)
+3. [Filosofi Arsitektur (The "Why")](#-filosofi-arsitektur-the-why)
+4. [Fitur Produksi & Keamanan](#-fitur-produksi--keamanan)
+5. [Developer Experience & Quality Guard](#-developer-experience--quality-guard)
+   - [🔥 Architecture Linter (`rel lint`)](#-architecture-linter-rel-lint)
+   - [🩺 Starter Kit Doctor (`rel doctor`)](#-starter-kit-doctor-rel-doctor)
+   - [🧙‍♂️ Interactive Module Generator (`rel gen`)](#-interactive-module-generator-rel-gen)
+6. [Struktur Proyek](#-struktur-proyek)
+7. [Panduan Generator & Format Manifest](#-panduan-generator--format-manifest)
+8. [Format Response API & Error Handling](#-format-response-api--error-handling)
+9. [Semua Perintah Task Runner](#-semua-perintah-task-runner)
+
+---
+
+## ✨ Fitur Utama & Keunggulan
+
+- 🏛️ **Clean Architecture Enforcement**: Batasan layer yang ketat (Controller ➔ Service ➔ Repository) yang dijaga secara otomatis oleh **Architecture Linter** berbasis AST Parser (`rel lint`).
+- ⚡ **High Performance Stack**: Berbasis [Fiber v3](https://gofiber.io/) (Fasthttp), [GORM](https://gorm.io/), [Logrus](https://github.com/sirupsen/logrus), dan [Viper](https://github.com/spf13/viper).
+- 🛡️ **Fail-Fast Configuration**: Validasi otomatis saat aplikasi pertama kali start. Aplikasi langsung *exit* secara aman jika ada konfigurasi environment wajib yang hilang.
+- 🩺 **Built-in Health Checks**: Ready-to-use `/health`, `/ready` (ping MySQL & Redis), dan `/live` untuk Kubernetes / Docker Swarm probe.
+- 🔄 **Context-Propagated Transactions**: Transaksi database tanpa perlu mengoper struct `tx` secara manual ke signature repository.
+- 🔍 **Query Filter Standard**: Filter pencarian (`?search=...`), sorting dinamis (`?sort_by=created_at&sort_dir=desc`), dan paginasi standar terintegrasi di level generic repository.
+
+---
+
+## 🧰 Instalasi & Penggunaan CLI (`rel`)
+
+Kompilasi CLI `rel` secara lokal atau jalankan via Task runner:
+
+```bash
+# Build binary CLI rel
+go build -o bin/rel.exe ./cmd/rel
+
+# Menjalankan diagnostik kesehatan proyek
+./bin/rel.exe doctor   # atau: task doctor
+
+# Menjalankan Architecture Linter
+./bin/rel.exe lint     # atau: task lint-arch
+
+# Membuat project baru
+./bin/rel.exe new github.com/username/my-api
+
+# Generate modul baru
+./bin/rel.exe gen Product
+```
 
 ---
 
 ## 🧠 Filosofi Arsitektur (The "Why")
 
-Sebelum menggunakan framework ini, penting untuk memahami **mengapa** keputusan arsitektur tertentu diambil:
+### 1. Kenapa ada `internal/foundation`?
+`foundation` adalah tulang punggung framework. Alih-alih membuat logic paginasi, format error, atau struktur response secara berulang di setiap modul, semuanya ditarik ke tengah. `foundation` memastikan **seluruh API berbicara dengan bahasa yang sama**.
 
-### 1. Kenapa ada `foundation`?
-Foundation adalah tulang punggung framework. Alih-alih membuat logic paginasi, format error, atau struktur response secara berulang di setiap fitur, semuanya ditarik ke tengah. `foundation` memastikan bahwa **seluruh API berbicara dengan bahasa yang sama**. Tidak ada lagi module yang me-return error dengan format berbeda.
+### 2. Kenapa DTO dipisah dari Entity?
+Entity adalah representasi skema database, sedangkan DTO adalah kontrak payload transport HTTP. Memisahkan keduanya menjamin field sensitif (seperti `password_hash` atau data audit internal) tidak akan pernah bocor ke response API secara tidak sengaja.
 
-### 2. Kenapa ada `module`?
-Aplikasi sering kali menjadi monolith yang sulit dipecah karena *logic* saling silang. Dengan mengelompokkan kode berdasarkan `module` (domain driven), setiap fitur (seperti User, Order, Product) terisolasi dengan rapi. Jika suatu saat fitur harus dipindah ke microservice, pemisahannya jauh lebih mudah.
-
-### 3. Kenapa DTO dipisah?
-Dulu, kita sering mencampur Entity (struktur database) dengan DTO (struktur API). Akibatnya, password atau field sensitif bisa bocor ke response secara tak sengaja. Dengan memisahkan DTO, **Entity hanya urusan database, dan DTO hanya urusan transport**. Tidak ada *Single Source of Truth* yang rancu.
-
-### 4. Kenapa Controller dibuat setipis mungkin (Thin Controller)?
-Controller hanya boleh tahu soal framework HTTP (Fiber). Tugasnya hanya parsing request, memanggil Usecase, dan me-return JSON lewat `foundation/response`. Jika suatu saat kita pindah dari Fiber ke Gin atau gRPC, business logic (Usecase) tidak perlu disentuh sama sekali.
-
-### 5. Kenapa Generator sangat beropini (Opinionated Generator)?
-Generator yang terlalu fleksibel akan menghasilkan kode yang tidak konsisten. Generator di sini dipaksa patuh pada aturan Foundation. Ia memaksa developer membuat kode dengan standar kualitas yang sama, lengkap dengan DTO yang benar, mapper yang benar, dan error handling yang immutable.
+### 3. Thin Controller & Isolated Service
+Controller hanya bertugas menerima HTTP request (Fiber Ctx), memanggil Service, dan mengembalikan HTTP Response via `foundation/response`. Service murni berisi logika bisnis yang **bebas dari dependensi web framework Fiber**.
 
 ---
 
-## 🧊 Arsitektur Beku (Frozen Architecture)
+## 🚀 Fitur Produksi & Keamanan
 
-**Arsitektur pada folder structure ini telah dibekukan.**
-
-Tidak akan ada lagi perdebatan apakah DTO ditaruh di dalam atau di luar module, atau bagaimana file konfigurasi disusun. Semuanya sudah pada bentuk finalnya yang paling matang.
-
-Perubahan ke depan hanya akan fokus pada:
-1. **Penyempurnaan Generator**: Membuat generator semakin cerdas membaca *manifest*.
-2. **Implementasi Foundation**: Menambahkan fitur-fitur generic yang bisa dipakai semua module.
-3. **Bug Fixes**.
-
-Dengan arsitektur yang beku, *Generator* tidak akan pernah tertinggal.
-
----
-
-## 🤖 Generator: Murid dari Foundation
-
-Generator di framework ini bukanlah sekadar alat copy-paste. Ia adalah "murid" yang patuh pada arsitektur. Generator digerakkan sepenuhnya oleh **Manifest** (file YAML), sehingga satu definisi manifest bisa menghasilkan struktur kode yang 100% konsisten dengan filosofi Foundation.
-
-### 1. Tipe Modul (Standard vs Business)
-
-Framework mendukung 2 tipe modul yang dapat dikonfigurasi melalui manifest:
-
-* **Modul Standard (`type: standard` / Default)**:
-  * Digunakan untuk mengelola 1 tabel database (CRUD + Entity + GORM + Migration SQL + Repository + Usecase + Controller + DTO + Route).
-  * Field pada `fields` otomatis dipetakan ke **Kolom Migration SQL**, **Struct Entity GORM**, dan **DTO Request/Response**.
-* **Modul Bisnis (`type: business`)**:
-  * Digunakan untuk **Business Action / Orchestration** (misal: `Checkout`, `PaymentProcess`, `TransferFund`) yang **tidak menguasai 1 tabel database sendiri**.
-  * Tidak menghasilkan Entity maupun Migration SQL.
-  * Field pada `fields` dipetakan sebagai **payload input & output API (DTO `ProcessRequest` & `ProcessResponse`)**.
-
-### 2. Opsi Transaksi (Transactional Module)
-
-* Set `transactions: true` (atau `transactional: true`) di manifest.
-* Pada **Modul Standard**, semua aksi *database write* (`Create`, `Update`, `Delete`) di Usecase/Service otomatis dibungkus di dalam **Database Transaction** (`txManager`).
-* Pada **Modul Bisnis**, Service otomatis menerima `s.Tx` (`TransactionManager`) untuk melakukan transaksi *multi-repository* via `s.Tx.RunInTx(ctx, ...)`.
-
----
-
-### Contoh Manifest YAML
-
-#### A. Standard CRUD Module (`manifests/product.yaml`)
-```yaml
-name: Product
-type: standard
-transactions: true
-tests: false
-fields:
-  - name: sku
-    type: string
-    required: true
-  - name: price
-    type: float64
-    required: true
-  - name: published_at
-    type: time.Time       # Menggunakan tipe waktu Go (Auto import package "time")
-    required: false
-  - name: status
-    type: string
-    sql_type: "ENUM('ACTIVE', 'INACTIVE')"
-    required: true
+### 1. Config Fail-Fast Validation
+Aplikasi divalidasi secara otomatis pada startup (`main.go`):
+```go
+// internal/config/config.go
+type JwtConfig struct {
+    Secret string `mapstructure:"secret" validate:"required,min=16"`
+}
 ```
+Jika `JWT.Secret` kosong atau kurang dari 16 karakter, aplikasi akan mencetak pesan error terperinci dan melakukan `os.Exit(1)`.
 
-#### B. Business Action Module (`manifests/checkout.yaml`)
-```yaml
-name: Checkout
-type: business
-transactions: true        # Inject TxManager untuk multi-table transaction
-tests: false
-fields:
-  - name: cart_id
-    type: string
-    required: true
-  - name: payment_method
-    type: string
-    required: true
-  - name: processed_at
-    type: time.Time       # Tipe waktu untuk payload DTO request/response
-    required: false
-```
+### 2. Health & Readiness Probes
+- **`GET /health`** (Liveness Probe): Mengembalikan `200 OK`.
+- **`GET /ready`** (Readiness Probe): Ping aktif ke **MySQL** dan **Redis**. Mengembalikan `200 OK` (sehat) atau `503 Service Unavailable` (terputus).
+- **`GET /live`** (Diagnostic Probe): Status terperinci sistem.
 
-Eksekusi generator:
-```powershell
-task gen name=product
-```
+### 3. Graceful Shutdown
+Ketika aplikasi menerima sinyal `SIGINT` (Ctrl+C) atau `SIGTERM`, server menyelesaikan request yang sedang berjalan dan menutup koneksi MySQL (`gorm.DB`) dan Redis Storage secara rapi.
 
----
+### 4. BaseEntity & Core Audit Timestamps
+Semua model domain meng-embed `database.BaseEntity`:
+```go
+package product
 
-### Tipe Data & SQL Mapping
+import "github.com/mkhsnw/rel/internal/foundation/database"
 
-| Tipe di Manifest (`type`) | Tipe Data Go | Tipe Data SQL (GORM/Migration) | Keterangan |
-| :--- | :--- | :--- | :--- |
-| `string` / `text` | `string` | `VARCHAR(255)` / `TEXT` | Teks pendek atau panjang. |
-| `bool` | `bool` | `TINYINT(1)` | Boolean (true/false). |
-| `int`, `int64`, dsb | `int` / `int64` | `INT`, `BIGINT`, dsb | Angka bulat. |
-| `float32`, `float64` | `float32`/`64` | `FLOAT` / `DOUBLE PRECISION`| Angka desimal. |
-| `time` / `time.Time` | `time.Time` | `TIMESTAMP` | Waktu spesifik. Otomatis mengimport package `"time"`. |
-
-**Aturan Khusus (Smart Generator):**
-1. **Custom SQL Type (Enum)**: Gunakan properti `sql_type` (seperti contoh di atas) untuk menimpa tipe SQL bawaan (misal untuk ENUM). Tipe di Go akan tetap menggunakan nilai `type`.
-2. **Foreign Key Otomatis**: Jika nama kolom berakhiran `_id` (misal `category_id`), SQL type-nya otomatis di-*override* menjadi `CHAR(36)` (UUID).
-3. **Nullable**: Jika `required: false` (atau tidak ditulis), kolom tidak akan memiliki constraint `NOT NULL`.
-4. **Field Bawaan (Modul Standard)**: Jangan tulis `id`, `created_at`, dan `updated_at` di manifest modul standard. Ketiga kolom ini wajib dan selalu otomatis di-generate oleh template (menggunakan UUID v7).
-
----
-
-## 📦 Apa yang Kamu Dapat
-
-- ✅ **Single Source of Truth**: Tidak ada lagi package `model` yang ambigu. Transport diurus DTO, logic oleh Entity, format oleh Foundation.
-- ✅ **Config Granular**: `http.go`, `database.go`, `logger.go`, `storage.go`. Generator-friendly dan menghindari konflik *merge*.
-- ✅ **Mapper Sentralistik**: Semua error validasi atau meta pagination dipetakan seragam oleh `foundation/mapper`.
-- ✅ **Semantic Response**: Response dibentuk dengan makna yang jelas via `response.Created()`, `response.NoContent()`, dsb.
-- ✅ **Immutable Exceptions**: Error diinisialisasi sekali (`var ErrUserNotFound = exception.New(...)`) dan kompatibel penuh dengan `errors.Is`.
-- ✅ **Row-Locking & Transaksi**: Siap pakai untuk kasus *race-condition*.
-
----
-
-## 🌱 Memulai Project Baru
-
-```powershell
-task gokit-new github.com/usernamekamu/nama-project-baru
-```
-
-Yang terjadi:
-1. Core framework disalin ke folder baru.
-2. Riwayat `.git`, secret di `env.json` tidak ikut terbawa.
-3. Nama module Go diotomatisasi ulang.
-
-Setelah itu, copy `env.example.json` menjadi `env.json`, jalankan Redis dan MySQL, lalu:
-
-```powershell
-task init
-task dev
-```
-
----
-
-## 🗄️ Struktur Konfigurasi
-
-Konfigurasi dipecah menjadi file-file modular di `internal/config`:
-- `http.go`: Konfigurasi server Fiber, middleware, error handler.
-- `database.go`: Konfigurasi koneksi MySQL via GORM.
-- `logger.go`: Logrus dengan pemformatan yang seragam.
-- `storage.go`: Redis untuk *rate limiting* dan *caching*.
-
-Pemisahan ini membuat *Generator* dapat menyisipkan konfigurasi baru (seperti Kafka atau AWS S3) tanpa mengganggu konfigurasi yang sudah ada.
-
----
-
-## 📦 Format Response API
-
-**Semua endpoint wajib menggunakan `foundation/response`**.
-
-Contoh sukses:
-```json
-{ "data": { "id": "...", "name": "..." } }
-```
-
-Contoh error (otomatis di-map dari Validator):
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid input",
-    "fields": [ { "field": "email", "message": "failed on 'required' validation" } ]
-  }
+type Product struct {
+    database.BaseEntity // Memiliki ID (UUID v7), CreatedAt, UpdatedAt, DeletedAt (gorm.DeletedAt)
+    Name  string  `gorm:"column:name;type:varchar(255);not null"`
+    Price float64 `gorm:"column:price;type:double;not null"`
 }
 ```
 
----
+### 5. Query Object Pattern (Paginasi, Search & Sort)
+```go
+filter := database.QueryFilter{
+    Page:    1,
+    Size:    10,
+    Search:  "laptop",
+    SortBy:  "price",
+    SortDir: "asc",
+}
 
-## 🧪 Testing & Mocks
+products, total, err := r.List(ctx, filter, []string{"name", "sku"})
+```
 
-Semua Usecase bergantung ke *interface*, memungkinkannya diuji sepenuhnya tanpa koneksi database.
-
-```powershell
-task mock    # generate ulang mock
-task test    # jalankan test + coverage
+### 6. Context-Based Transaction Manager
+```go
+err := s.Tx.Run(ctx, func(txCtx context.Context) error {
+    if err := s.OrderRepo.Create(txCtx, order); err != nil {
+        return err
+    }
+    if err := s.InventoryRepo.DeductStock(txCtx, productID, qty); err != nil {
+        return err
+    }
+    return nil
+})
 ```
 
 ---
 
-## 🔨 Semua Perintah Task
+## 🛠️ Developer Experience & Quality Guard
 
-```powershell
-task help              # List perintah
-task dev               # Hot-reload development
-task build             # Compile ke binary
-task test              # Test + coverage
-task lint              # Golangci-lint
-task fmt               # Format kode
-task mock              # Generate mock
-task docs              # Generate swagger
-task gen name=...      # Generate CRUD module
-task rm name=...       # Hapus module
-task migrate-up        # Eksekusi migration
-task gokit-new ...     # Buat project baru
+### 🔥 Architecture Linter (`rel lint` / `task lint-arch`)
+AST Static Analyzer yang mengecek 5 aturan arsitektur secara otomatis:
+
+```bash
+task lint-arch
 ```
+
+### 🩺 Starter Kit Doctor (`rel doctor` / `task doctor`)
+Diagnostik lingkungan dev:
+
+```bash
+task doctor
+```
+
+---
+
+## 📁 Struktur Proyek
+
+```text
+├── cmd/
+│   ├── main.go             # Entrypoint aplikasi HTTP server
+│   ├── rel/                # Unified RelGo CLI Executable
+│   ├── gen/                # Generator CLI & wizard interaktif
+│   ├── lint/               # Architecture Linter CLI (AST Analyzer)
+│   ├── doctor/             # Environment Doctor CLI
+│   ├── migrate/            # CLI runner database migration
+│   ├── new/                # CLI Scaffolding project baru (gokit-new)
+│   ├── rm/                 # CLI penilai/penghapus modul
+│   └── seed/               # CLI runner database seeder
+├── db/
+│   ├── factory/            # Data factories (Gofakeit)
+│   ├── migrations/         # File SQL migration (.up.sql & .down.sql)
+│   └── seed/               # Database seeders
+├── manifests/              # Definisi YAML manifest modul
+├── internal/
+│   ├── config/             # Modular configuration (http, database, viper, logger, storage)
+│   ├── foundation/         # Core framework (appcontext, database, exception, health, logger, mapper, response, validator)
+│   ├── middleware/         # Middleware HTTP (auth, request context, correlation id)
+│   └── module/             # Domain modules (User, Product, Order, dll)
+├── docker-compose.yml      # Local dev setup (MySQL 8.0 & Redis 7)
+├── env.example.json        # Template konfigurasi environment
+├── Taskfile.yml            # Task runner automation
+└── go.mod
+```
+
+---
+
+## 🔨 Semua Perintah Task Runner
+
+```bash
+# Development & Quality
+task dev               # Jalankan server dev dengan hot reload (Air)
+task build             # Compile binary release ke bin/app
+task test              # Jalankan unit tests + coverage report
+task lint              # Jalankan linter checker (golangci-lint)
+task lint-arch         # 🔥 Jalankan Architecture Linter (rel lint)
+task doctor            # 🩺 Jalankan diagnostik kesehatan lingkungan dev (rel doctor)
+task fmt               # Format kode Go
+task docs              # Generate OpenAPI / Swagger docs
+
+# Code Generation & Cleanup
+task gen name=product  # Generate module CRUD + Migration + Seeder + Factory
+task rm name=Product   # Hapus module Product secara permanen
+task make-migration    # Buat file SQL migration baru
+task make-seeder       # Generate file Seeder
+task make-factory      # Generate file Factory
+
+# Database & Migration
+task migrate-up        # Terapkan semua skema migration baru
+task migrate-down      # Rollback 1 file migration terakhir
+task migrate-fresh     # Reset DB, re-apply migrasi dari awal & seed
+task seed              # Isi database dengan data seeder awal
+```
+
+---
+**RelGo Framework** — *Architected for Consistency, Scale, and Joy.*

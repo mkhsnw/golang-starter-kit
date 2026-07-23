@@ -3,8 +3,8 @@ package seed
 import (
 	"log"
 
-	"github.com/mkhsnw/golang-starter-kit/db/factory"
-	"github.com/mkhsnw/golang-starter-kit/internal/module/user"
+	"github.com/mkhsnw/rel/db/factory"
+	"github.com/mkhsnw/rel/internal/module/user"
 	"gorm.io/gorm"
 )
 

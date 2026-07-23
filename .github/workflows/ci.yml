@@ -1,0 +1,42 @@
+name: RelGo Framework CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    name: Build & Verify Architecture
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go Compiler
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Download Go Dependencies
+        run: go mod download
+
+      - name: Build RelGo Executables
+        run: |
+          go build -o bin/rel ./cmd/rel
+          go build -o bin/gen ./cmd/gen
+          go build -o bin/lint ./cmd/lint
+          go build -o bin/doctor ./cmd/doctor
+          go build -o bin/app cmd/main.go
+
+      - name: Run Unit Tests & Golden Snapshot Tests
+        run: go test -v ./...
+
+      - name: Run Architecture Linter
+        run: go run ./cmd/lint
+
+      - name: Run Doctor Environment Diagnostic
+        run: go run ./cmd/doctor

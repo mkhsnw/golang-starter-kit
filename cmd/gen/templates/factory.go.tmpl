@@ -17,9 +17,11 @@ func New{{.Pascal}}Factory() *{{.Pascal}}Factory {
 
 func (f *{{.Pascal}}Factory) Build(overrides ...func(*{{.Snake}}.{{.Pascal}})) *{{.Snake}}.{{.Pascal}} {
 	item := &{{.Snake}}.{{.Pascal}}{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 {{- range .Fields }}
-{{- if eq .Type "string" }}
+{{- if or .IsForeignKey (hasSuffix .SnakeName "_id") (hasSuffix .SnakeName "_Id") (hasSuffix .SnakeName "_ID") }}
+		{{ .PascalName }}: uuid.Must(uuid.NewV7()).String(),
+{{- else if eq .Type "string" }}
 {{- if hasSuffix .SnakeName "email" }}
 		{{ .PascalName }}: gofakeit.Email(),
 {{- else if or (hasSuffix .SnakeName "phone") (hasSuffix .SnakeName "mobile") }}
