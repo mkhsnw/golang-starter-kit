@@ -12,23 +12,34 @@ func printHelp() {
 ║              🚂 RelGo Framework CLI (rel)                     ║
 ╚══════════════════════════════════════════════════════════════╝
 
-RelGo — Framework Go berbasis rel opini yang menjaga arsitektur backend
-Anda tetap lurus di jalurnya tanpa anjlok (architectural erosion).
+RelGo — Starter-kit Go yang buat kamu membuat API dengan lancar dan mulu seperti kamu berjalan di rel.
 
 USAGE:
   rel <command> [arguments]
 
-AVAILABLE COMMANDS:
-  new <project-path>     Scaffold a new RelGo project
-  gen [module-name]      Generate a CRUD or business module (or interactive wizard)
-  rm <module-name>       Remove a generated module cleanly
-  doctor                 Run dev environment diagnostic health check
-  lint                   Run Architecture Linter (AST parser rule check)
-  version                Show RelGo version information
+SCAFFOLDING & GENERATOR:
+  rel new <project-path>     Scaffold a new RelGo project
+  rel gen [module-name]      Generate a CRUD or business module (or interactive wizard)
+  rel rm <module-name>       Remove a generated module cleanly
+  rel make-seeder <name>     Generate a database seeder file
+  rel make-factory <name>    Generate a data factory file
+  rel make-migration <name>  Generate new SQL migration files (.up.sql & .down.sql)
+
+DATABASE & MIGRATIONS:
+  rel migrate [action]       Run migrations (up, down, fresh, version, force)
+  rel seed [count=N]         Populate database with seed data
+
+QUALITY & DIAGNOSTICS:
+  rel doctor                 Run dev environment diagnostic health check
+  rel lint                   Run Architecture Linter (AST parser rule check)
+  rel version                Show RelGo version information
+  rel help                   Show this help documentation
 
 EXAMPLES:
   rel new github.com/username/my-awesome-api
   rel gen Product
+  rel migrate up
+  rel seed count=50
   rel doctor
   rel lint
 `)
@@ -50,9 +61,19 @@ func main() {
 		runSubcommand("cmd/gen/main.go", args...)
 	case "rm":
 		runSubcommand("cmd/rm/main.go", args...)
+	case "migrate":
+		runSubcommand("cmd/migrate/main.go", args...)
+	case "seed":
+		runSubcommand("cmd/seed/main.go", args...)
+	case "make-seeder":
+		runSubcommand("cmd/gen/main.go", append([]string{"--make-seeder"}, args...)...)
+	case "make-factory":
+		runSubcommand("cmd/gen/main.go", append([]string{"--make-factory"}, args...)...)
+	case "make-migration", "migrate-create":
+		runSubcommand("cmd/gen/main.go", append([]string{"--make-migration"}, args...)...)
 	case "doctor":
 		runSubcommand("cmd/doctor/main.go", args...)
-	case "lint":
+	case "lint", "lint-arch":
 		runSubcommand("cmd/lint/main.go", args...)
 	case "version", "-v", "--version":
 		fmt.Println("🚂 RelGo Framework v1.0.0 (Core Frozen & Production Ready)")
@@ -65,6 +86,12 @@ func main() {
 }
 
 func runSubcommand(scriptPath string, args ...string) {
+	if _, err := os.Stat(scriptPath); err != nil {
+		fmt.Printf("⚠️  RelGo Notice: File '%s' not found in current directory.\n", scriptPath)
+		fmt.Printf("   Please make sure you are executing 'rel' inside a RelGo project directory.\n")
+		os.Exit(1)
+	}
+
 	cmdArgs := append([]string{"run", scriptPath}, args...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Stdout = os.Stdout
